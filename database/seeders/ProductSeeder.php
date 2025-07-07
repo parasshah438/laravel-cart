@@ -2,17 +2,20 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use App\Models\Product;
+use App\Models\ProductStock;
 
 class ProductSeeder extends Seeder
 {
-
     public function run(): void
     {
+        //Clear old data
         Product::truncate();
-        Product::insert([
+        ProductStock::truncate();
+
+        //Products with basic info
+        $products = [
             [
                 'name' => 'Red T-Shirt',
                 'price' => 499,
@@ -63,6 +66,22 @@ class ProductSeeder extends Seeder
                 'price' => 3499,
                 'image' => 'https://placehold.co/400?text=Sports+Watch',
             ],
-        ]);
+        ];
+
+        foreach ($products as $index => $data) {
+            //Insert product
+            $product = Product::create($data);
+
+            //Insert default stock for that product (no variant)
+            ProductStock::create([
+                'product_id' => $product->id,
+                'sku' => 'SKU-' . strtoupper(str_replace(' ', '-', $product->name)) . '-' . ($index + 1),
+                'variant' => null,
+                'price' => $product->price,
+                'qty' => rand(5, 20),
+                'image' => $product->image,
+                'status' => 'active',
+            ]);
+        }
     }
 }

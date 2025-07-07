@@ -8,6 +8,7 @@ use App\Models\Product;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
+use App\Models\ProductStock;
 
 class CartService
 {
@@ -111,4 +112,21 @@ class CartService
         return $total;
     }
 
+    public function validateStock(int $productStockId, int $requestedQty): bool|string
+    {
+        $stock = ProductStock::find($productStockId);
+
+        if (!$stock) {
+            return "Stock item not found.";
+        }
+
+        if ($stock->qty == 0) {
+            return "This item is currently out of stock.";
+        }
+
+        if ($stock->qty < $requestedQty) {
+            return "Sorry, only {$stock->qty} item" . ($stock->qty > 1 ? 's' : '') . " left in stock.";
+        }
+        return true;
+    }
 }

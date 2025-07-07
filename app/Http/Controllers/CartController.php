@@ -5,7 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Services\CartService;
 use App\Models\Cart;
-
+use App\Models\Product;
+use App\Models\ProductStock;
 class CartController extends Controller
 {
     protected $cart;
@@ -63,9 +64,21 @@ class CartController extends Controller
             'product_id' => 'required|exists:products,id',
             'quantity' => 'nullable|integer|min:1',
         ]);
-
+        
         if ($validator->fails()) {
             return response()->json(['status' => false, 'errors' => $validator->errors()], 422);
+        }
+
+        $product = Product::with('stocks')->find($request->product_id);
+        $stock = $product->stocks()->first();
+        if (!$stock) {
+            return response()->json(['status' => false, 'message' => 'Stock not found.'], 404);
+        }
+
+        $quantity = $request->input('quantity', 1);
+        $result = $this->cart->validateStock($stock->id, $quantity);
+        if ($result !== true) {
+            return response()->json(['status' => false, 'message' => $result]);
         }
 
         $this->cart->add($request->product_id, $request->quantity ?? 1);
