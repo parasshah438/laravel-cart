@@ -24,33 +24,50 @@
     <div class="row g-4">
         @foreach($products as $product)
             <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-                <div class="card h-100 shadow-sm">
-                    <img src="{{ $product->image }}" class="card-img-top" alt="{{ $product->name }}" style="height: 180px; object-fit: cover;">
-                    <div class="card-body d-flex flex-column">
-                        <h5 class="card-title">{{ $product->name }}</h5>
-                        <p class="card-text text-muted mb-2">₹{{ $product->price }}</p>
-                        <form method="POST" action="{{ route('cart.ajaxAdd') }}" class="mt-auto add-to-cart-form">
-                            @csrf
-                            <input type="hidden" name="product_id" value="{{ $product->id }}">
-                            <div class="input-group mb-2">
-                                <input type="number" name="quantity" value="1" min="1" class="form-control" style="max-width: 80px;">
-                            </div>
-                            <button type="submit" class="btn btn-primary w-100">Add to Cart</button>
-                        </form>
-                    </div>
+    <div class="card h-100 shadow-sm position-relative">
+        {{-- Wishlist Icon --}}
+        <button class="btn btn-sm position-absolute top-0 end-0 m-2 {{ auth()->guest() ? 'guest-wishlist' : 'wishlist-toggle' }}"
+            data-product-id="{{ $product->id }}"
+            style="background-color: white; border: none; z-index: 10;"
+            title="Toggle Wishlist">
+            <span class="wishlist-icon">
+                {{ auth()->check() && $wishlistProductIds->contains($product->id) ? '❤️' : '🤍' }}
+            </span>
+        </button>
+    
+        <img src="{{ $product->image }}" class="card-img-top" alt="{{ $product->name }}" style="height: 180px; object-fit: cover;">
+        <div class="card-body d-flex flex-column">
+            <h5 class="card-title">{{ $product->name }}</h5>
+            <p class="card-text text-muted mb-2">₹{{ $product->price }}</p>
+            <form method="POST" action="{{ route('cart.ajaxAdd') }}" class="mt-auto add-to-cart-form">
+                @csrf
+                <input type="hidden" name="product_id" value="{{ $product->id }}">
+                <div class="input-group mb-2">
+                    <input type="number" name="quantity" value="1" min="1" class="form-control" style="max-width: 80px;">
                 </div>
-            </div>
+                <button type="submit" class="btn btn-primary w-100">Add to Cart</button>
+            </form>
+        </div>
+    </div>
+</div>
+
         @endforeach
     </div>
 </div>
 </body>
 </html>
-
-
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
 function showToast(message, success = true) {
-    alert((success ? "✅ " : "❌ ") + message);
+    Toastify({
+        text: message,
+        duration: 3000,
+        close: false,
+        gravity: "top",
+        position: "right",
+        backgroundColor: success ? "#28a745" : "#dc3545",
+        stopOnFocus: true,
+    }).showToast();
 }
 
 $(document).on('submit', '.add-to-cart-form', function(e) {
@@ -73,4 +90,36 @@ $(document).on('submit', '.add-to-cart-form', function(e) {
     });
 });
 
+$(document).on('click', '.guest-wishlist', function (e) {
+    e.preventDefault();
+    showToast("Please login to save items for later.", false);
+    setTimeout(() => {
+        window.location.href = "{{ route('login') }}";
+    }, 1500);
+});
+
+
+$(document).on('click', '.wishlist-toggle', function () {
+    const btn = $(this);
+    const icon = btn.find('.wishlist-icon');
+    const productId = btn.data('product-id');
+
+    $.post("{{ route('wishlist.toggle') }}", {
+        _token: "{{ csrf_token() }}",
+        product_id: productId
+    }, function (response) {
+        if (response.status) {
+            showToast(response.message, true);
+            if (icon.text().trim() === '❤️') {
+                icon.text('🤍');
+            } else {
+                icon.text('❤️');
+            }
+        } else {
+            showToast(response.message, false);
+        }
+    }).fail(function () {
+        showToast("Failed to update wishlist", false);
+    });
+});
 </script>

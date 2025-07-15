@@ -83,8 +83,6 @@
             </div>
         @endif
         <a href="{{ url('/') }}" class="btn btn-primary">Continue Shopping</a>
-        
-
     </div>
 </body>
 
@@ -292,7 +290,6 @@
             callback: function(result) {
                 if (result) {
                     submitBtn.prop('disabled', true).text('Removing...');
-
                     $.ajax({
                         type: 'POST',
                         url: "{{ route('cart.ajaxRemove') }}",
@@ -338,5 +335,4 @@
             }
         });
     });
-
 </script>
