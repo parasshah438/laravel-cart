@@ -66,9 +66,14 @@ class CartService
         $cart->items()->where('product_id', $productId)->delete();
     }
 
-    public function getCartItems()
+    public function getCartItems(bool $onlySaved = false)
     {
-        return $this->getOrCreateCart()->items()->with('product')->get();
+        $cart = $this->getOrCreateCart();
+        return $cart->items()
+            ->with('product')
+            ->where('saved_for_later', $onlySaved)
+            ->get();
+            //return $this->getOrCreateCart()->items()->with('product')->get();
     }
 
     public function mergeSessionCartToUser()
@@ -103,7 +108,7 @@ class CartService
 
     public function calculateTotal()
     {
-        $items = $this->getCartItems();
+        $items = $this->getCartItems(false); // only active items
         $total = 0;
 
         foreach ($items as $item) {

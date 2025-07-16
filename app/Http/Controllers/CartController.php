@@ -7,6 +7,8 @@ use App\Services\CartService;
 use App\Models\Cart;
 use App\Models\Product;
 use App\Models\ProductStock;
+use App\Models\Wishlist;
+use App\Models\CartItem;
 class CartController extends Controller
 {
     protected $cart;
@@ -19,7 +21,9 @@ class CartController extends Controller
     public function view()
     {
         $items = $this->cart->getCartItems();
-        return view('cart.index', compact('items'));
+        $savedItems = $this->cart->getCartItems(true); // saved_for_later = true
+
+        return view('cart.index', compact('items','savedItems'));
     }
 
     public function add(Request $request)
@@ -142,4 +146,96 @@ class CartController extends Controller
         return response()->json(['status' => true, 'message' => 'Cart cleared successfully.']);
     }
 
+    public function moveToWishlist(Request $request)
+    {
+        $request->validate([
+            'product_id' => 'required|exists:products,id'
+        ]);
+
+        $productId = $request->product_id;
+
+        //Save to wishlist
+        Wishlist::updateOrCreate([
+            'user_id' => auth()->id(),
+            'product_id' => $productId
+        ]);
+
+        //Remove from cart
+        $this->cart->remove($productId);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Your product has been moved to wishlist.',
+        ]);
+    }
+
+    public function moveToCart(Request $request)
+    {
+        $item = CartItem::where('product_id', $request->product_id)
+            ->where('saved_for_later', true)
+            ->where(function($q) {
+                auth()->check()
+                    ? $q->where('user_id', auth()->id())
+                    : $q->where('session_id', session()->getId());
+            })
+            ->first();
+
+        if (!$item) {
+            return response()->json(['status' => false, 'message' => 'Saved item not found.']);
+        }
+
+        $item->saved_for_later = false;
+        $item->save();
+
+        return response()->json(['status' => true, 'message' => 'Moved back to cart.']);
+    }
+
+    public function moveToCartFromSaved(Request $request)
+    {
+        $cart = Cart::query()
+            ->when(auth()->check(), fn($q) => $q->where('user_id', auth()->id()))
+            ->when(!auth()->check(), fn($q) => $q->where('session_id', session()->getId()))
+            ->first();
+
+        if (!$cart) {
+            return response()->json(['status' => false, 'message' => 'Cart not found.']);
+        }
+
+        $item = $cart->items()
+            ->where('product_id', $request->product_id)
+            ->where('saved_for_later', true)
+            ->first();
+
+        if (!$item) {
+            return response()->json(['status' => false, 'message' => 'Saved item not found.']);
+        }
+
+        $item->saved_for_later = false;
+        $item->save();
+
+        return response()->json(['status' => true, 'message' => 'Item moved to cart.']);
+    }
+
+    public function saveForLater(Request $request)
+    {
+        $cart = Cart::query()
+            ->when(auth()->check(), fn($q) => $q->where('user_id', auth()->id()))
+            ->when(!auth()->check(), fn($q) => $q->where('session_id', session()->getId()))
+            ->first();
+
+        if (!$cart) {
+            return response()->json(['status' => false, 'message' => 'Cart not found.']);
+        }
+
+        $item = $cart->items()->where('product_id', $request->product_id)->first();
+
+        if (!$item) {
+            return response()->json(['status' => false, 'message' => 'Item not found in cart.']);
+        }
+
+        $item->saved_for_later = true;
+        $item->save();
+
+        return response()->json(['status' => true, 'message' => 'Item saved for later.']);
+    }
 }

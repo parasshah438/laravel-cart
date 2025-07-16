@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <title>Bootstrap 5 Example</title>
     <meta charset="utf-8">
@@ -12,80 +11,124 @@
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootbox@5.5.2/bootbox.min.js"></script>
 </head>
-
 <body>
-    <div class="container py-4">
-
-        @if($items->isEmpty())
-        <div class="alert alert-info">Your cart is empty.</div>
-        @else
-        <table class="table table-bordered">
-            <thead>
-                <tr>
-                    <th>Item</th>
-                    <th>Qty</th>
-                    <th>Price</th>
-                    <th>Subtotal</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                @php $total = 0; @endphp
-                @foreach($items as $item)
-                @php $subtotal = $item->quantity * $item->price_at_time; $total += $subtotal; @endphp
+    <div class="container mt-4">
+        <div id="saved-items-section">
+            @if($savedItems->isNotEmpty())
+            <h5 class="mt-5">Saved for Later</h5>
+            <table class="table table-bordered">
+                @foreach($savedItems as $item)
                 <tr>
                     <td>
                         <img src="{{ $item->product->image }}" width="60" class="me-2">
                         {{ $item->product->name }}
                     </td>
                     <td>
-                        <div class="input-group input-group-sm quantity-group" style="max-width: 140px;">
-                            <button class="btn btn-outline-secondary btn-qty-decrease" type="button">
-                                <span class="qty-icon">{{ $item->quantity <= 1 ? '🗑️' : '−' }}</span>
-                            </button>
-                            <input type="number"
-                                class="form-control text-center cart-qty-input"
-                                value="{{ $item->quantity }}"
-                                data-initial="{{ $item->quantity }}"
-                                data-product-id="{{ $item->product_id }}"
-                                min="1"
-                                readonly>
-                            <button class="btn btn-outline-secondary btn-qty-increase" type="button">
-                                <span class="qty-icon">+</span>
-                            </button>
+                        <div class="d-flex gap-2">
+                            <form method="POST" action="{{ route('cart.moveToCartFromSaved') }}" class="move-to-cart-form">
+                                @csrf
+                                <input type="hidden" name="product_id" value="{{ $item->product_id }}">
+                                <button type="submit" class="btn btn-sm btn-primary">Move to Cart</button>
+                            </form>
+                            <form method="POST" action="{{ route('cart.ajaxRemove') }}" class="remove-cart-form">
+                                @csrf
+                                <input type="hidden" name="product_id" value="{{ $item->product_id }}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                            </form>
                         </div>
-                    </td>
-                    <td>₹{{ number_format($item->price_at_time,2) }}</td>
-                    <td class="item-subtotal" data-subtotal="{{ $subtotal }}" data-price="{{ $item->price_at_time }}">
-                        ₹{{ number_format($subtotal, 2) }}
-                    </td>
-                    <td>
-                        <form method="POST" action="{{ route('cart.ajaxRemove') }}" class="remove-cart-form">
-                            @csrf
-                            <input type="hidden" name="product_id" value="{{ $item->product_id }}">
-                            <button type="submit" class="btn btn-danger btn-sm">Remove</button>
-                        </form>
                     </td>
                 </tr>
                 @endforeach
-                <tr class="cart-total-row">
-                    <td colspan="3"><strong>Total</strong></td>
-                    <td colspan="2"><strong>₹<span id="cart-total">{{ number_format($total, 2) }}</span></strong></td>
-                </tr>
-            </tbody>
-        </table>
-        @endif
-        @if(!$items->isEmpty())
+            </table>
+            @else
+            <div class="alert alert-info">No items saved for later.</div>
+            @endif
+        </div>
+    </div>
+    <div class="container py-4">
+        <div id="cart-items-section">
+            @if($items->isEmpty())
+            <div class="alert alert-info">Your cart is empty.</div>
+            @else
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Qty</th>
+                        <th>Price</th>
+                        <th>Subtotal</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @php $total = 0; @endphp
+                    @foreach($items as $item)
+                    @php $subtotal = $item->quantity * $item->price_at_time; $total += $subtotal; @endphp
+                    <tr>
+                        <td>
+                            <img src="{{ $item->product->image }}" width="60" class="me-2">
+                            {{ $item->product->name }}
+                        </td>
+                        <td>
+                            <div class="input-group input-group-sm quantity-group" style="max-width: 140px;">
+                                <button class="btn btn-outline-secondary btn-qty-decrease" type="button">
+                                    <span class="qty-icon">{{ $item->quantity <= 1 ? '🗑️' : '−' }}</span>
+                                </button>
+                                <input type="number"
+                                    class="form-control text-center cart-qty-input"
+                                    value="{{ $item->quantity }}"
+                                    data-initial="{{ $item->quantity }}"
+                                    data-product-id="{{ $item->product_id }}"
+                                    min="1"
+                                    readonly>
+                                <button class="btn btn-outline-secondary btn-qty-increase" type="button">
+                                    <span class="qty-icon">+</span>
+                                </button>
+                            </div>
+                        </td>
+                        <td>₹{{ number_format($item->price_at_time,2) }}</td>
+                        <td class="item-subtotal" data-subtotal="{{ $subtotal }}" data-price="{{ $item->price_at_time }}">
+                            ₹{{ number_format($subtotal, 2) }}
+                        </td>
+                        <td>
+                            <div class="d-flex flex-column gap-1">
+                                <form method="POST" action="{{ route('cart.moveToWishlist') }}" class="move-to-wishlist-form">
+                                    @csrf
+                                    <input type="hidden" name="product_id" value="{{ $item->product_id }}">
+                                    <button type="submit" class="btn btn-outline-secondary btn-sm w-100">♡ Move to Wishlist</button>
+                                </form>
+                                <form method="POST" action="{{ route('cart.ajaxRemove') }}" class="remove-cart-form">
+                                    @csrf
+                                    <input type="hidden" name="product_id" value="{{ $item->product_id }}">
+                                    <button type="submit" class="btn btn-danger btn-sm w-100">Remove</button>
+                                </form>
+                                <form method="POST" action="{{ route('cart.saveForLater') }}" class="save-for-later-form">
+                                    @csrf
+                                    <input type="hidden" name="product_id" value="{{ $item->product_id }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-warning w-100">Save for Later</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    @endforeach
+                    <tr class="cart-total-row">
+                        <td colspan="3"><strong>Total</strong></td>
+                        <td colspan="2"><strong>₹<span id="cart-total">{{ number_format($total, 2) }}</span></strong></td>
+                    </tr>
+                </tbody>
+            </table>
+            @endif
+            @if(!$items->isEmpty())
             <div class="mb-3">
                 <button class="btn btn-danger btn-sm" id="clear-cart-btn">
                     <i class="bi bi-trash"></i> Clear Cart
                 </button>
             </div>
-        @endif
-        <a href="{{ url('/') }}" class="btn btn-primary">Continue Shopping</a>
+            @endif
+            <a href="{{ url('/') }}" class="btn btn-primary">Continue Shopping</a>
+        </div>
     </div>
 </body>
-
 </html>
 <script>
     function showToast(message, success = true) {
@@ -112,7 +155,6 @@
             button.prop('disabled', false);
         }
     }
-
 
     function updateCartTotal() {
         $.get("{{ route('cart.total') }}", function(response) {
@@ -145,14 +187,14 @@
                 });
 
                 row.find('.item-subtotal')
-                .text(formatted)
-                .data('subtotal', newSubtotal);
+                    .text(formatted)
+                    .data('subtotal', newSubtotal);
 
                 updateCartTotal();
 
                 // Update minus button icon (− or 🗑️)
                 const minusBtn = row.find('.btn-qty-decrease .qty-icon');
-               
+
                 minusBtn.text(newQty == "1" ? '🗑️' : '−');
 
                 inputElement.data('initial', newQty);
@@ -162,6 +204,12 @@
             },
             complete: doneCallback
         });
+    }
+
+    function refreshCartSections() {
+        $('#cart-items-section').load(location.href + ' #cart-items-section > *');
+        $('#saved-items-section').load(location.href + ' #saved-items-section > *');
+        $('#cart-total').load(location.href + ' #cart-total');
     }
 
     $(document).on('click', '.btn-qty-increase', function() {
@@ -184,7 +232,7 @@
         let qty = parseInt(input.val());
         const productId = input.data('product-id');
 
-        if (qty > 1) {  
+        if (qty > 1) {
             qty -= 1;
             input.val(qty);
             setButtonLoading(button, true);
@@ -269,7 +317,7 @@
     });
 
     $(document).on('submit', '.remove-cart-form', function(e) {
-    e.preventDefault();
+        e.preventDefault();
 
         const form = $(this);
         const submitBtn = form.find('button[type="submit"]');
@@ -297,6 +345,11 @@
                         success: function(response) {
                             showToast(response.message, true);
                             updateCartTotal();
+                            if ($('tbody tr').length == 2) {
+                                $('table.table').remove();  
+                                $('#clear-cart-btn').hide();
+                                $('.container').prepend('<div class="alert alert-info">Your cart is now empty.</div>');
+                            }
                             row.fadeOut(400, function() {
                                 $(this).remove();
                             });
@@ -313,8 +366,8 @@
         });
     });
 
-    $(document).on('click', '#clear-cart-btn', function () {
-        bootbox.confirm("Are you sure you want to clear your cart?", function (result) {
+    $(document).on('click', '#clear-cart-btn', function() {
+        bootbox.confirm("Are you sure you want to clear your cart?", function(result) {
             if (result) {
                 $.ajax({
                     type: 'POST',
@@ -322,16 +375,80 @@
                     data: {
                         _token: "{{ csrf_token() }}"
                     },
-                    success: function (response) {
+                    success: function(response) {
                         showToast(response.message, true);
                         $('table.table').remove();
                         $('#clear-cart-btn').hide();
                         $('.container').prepend('<div class="alert alert-info">Your cart is now empty.</div>');
                     },
-                    error: function () {
+                    error: function() {
                         showToast('Failed to clear cart.', false);
                     }
                 });
+            }
+        });
+    });
+
+    $(document).on('submit', '.move-to-wishlist-form', function(e) {
+        e.preventDefault();
+        const form = $(this);
+        const row = form.closest('tr');
+
+        const button = form.find('button');
+        button.prop('disabled', true).text('Moving...');
+        $.ajax({
+            type: 'POST',
+            url: form.attr('action'),
+            data: form.serialize(),
+            success: function(response) {
+                if (response.status) {
+                    showToast(response.message, true);
+
+                    //Remove row from DOM
+                    row.fadeOut(300, function() {
+                        $(this).remove();
+                        updateCartTotal(); // optional
+                    });
+                } else {
+                    showToast(response.message || 'Failed to move item.', false);
+                }
+            },
+            error: function(xhr) {
+                showToast('Something went wrong.', false);
+            },
+            complete: function() {
+                button.prop('disabled', false).text('♡ Move to Wishlist');
+            }
+        });
+    });
+
+    $(document).on('submit', '.save-for-later-form, .move-to-cart-form', function(e) {
+        e.preventDefault();
+        const form = $(this);
+        const button = form.find('button[type="submit"]');
+        const row = form.closest('tr');
+        button.prop('disabled', true).text('Processing...');
+
+        $.ajax({
+            type: 'POST',
+            url: form.attr('action'),
+            data: form.serialize(),
+            success: function(response) {
+                if (response.status) {
+                    showToast(response.message, true);
+                    row.fadeOut(300, function() {
+                        $(this).remove();
+                        refreshCartSections();
+                    });
+                } else {
+                    showToast(response.message, false);
+                }
+            },
+            error: function(xhr) {
+                showToast("Something went wrong.", false);
+            },
+            complete: function() {
+                button.prop('disabled', false).text('Done');
             }
         });
     });

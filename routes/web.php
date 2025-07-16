@@ -8,7 +8,6 @@ use App\Http\Controllers\WishlistController;
 
 Route::get('/', function () {
     $products = Product::all();
-    
     $wishlistProductIds = auth()->check()
     ? auth()->user()->wishlist()->pluck('product_id')
     : collect();
@@ -32,11 +31,12 @@ Route::middleware('auth')->group(function () {
     Route::post('/wishlist/move-to-cart', [WishlistController::class, 'moveToCart'])->name('wishlist.moveToCart');
     Route::post('/wishlist/move-all-to-cart', [WishlistController::class, 'moveAllToCart'])->name('wishlist.moveAllToCart');
     Route::delete('/wishlist/clear', [WishlistController::class, 'clear'])->name('wishlist.clear');
+    Route::post('/cart/move-to-wishlist', [CartController::class, 'moveToWishlist'])->name('cart.moveToWishlist');
 });
 
+Route::post('/cart/save-for-later', [CartController::class, 'saveForLater'])->name('cart.saveForLater');
+Route::post('/cart/move-to-cart', [CartController::class, 'moveToCartFromSaved'])->name('cart.moveToCartFromSaved');
 
-
-//Cart routes
 /*
 Route::get('/cart', [CartController::class, 'view'])->name('cart.view');
 Route::post('/cart/add', [CartController::class, 'add'])->name('cart.add');
@@ -44,6 +44,7 @@ Route::post('/cart/update', [CartController::class, 'update'])->name('cart.updat
 Route::post('/cart/remove', [CartController::class, 'remove'])->name('cart.remove');
 */
 
+//Cart routes
 Route::get('/cart', [CartController::class, 'view'])->name('cart.view');
 Route::get('/cart/total', [CartController::class, 'getTotal'])->name('cart.total');
 Route::post('/cart/add', [CartController::class, 'ajaxAdd'])->name('cart.ajaxAdd');

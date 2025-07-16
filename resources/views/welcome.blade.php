@@ -79,7 +79,6 @@ $(document).on('submit', '.add-to-cart-form', function(e) {
         data: form.serialize(),
         success: function(response) {
             showToast(response.message);
-            location.reload();
         },
         error: function(xhr) {
             if (xhr.status === 422) {
