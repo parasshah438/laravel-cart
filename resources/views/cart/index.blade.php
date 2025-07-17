@@ -64,6 +64,10 @@
                     @php $total = 0; @endphp
                     @foreach($items as $item)
                     @php $subtotal = $item->quantity * $item->price_at_time; $total += $subtotal; @endphp
+                    @php
+                        $stock = $item->product->stocks->first();
+                        $maxStock = $stock ? $stock->qty : 0;
+                    @endphp
                     <tr>
                         <td>
                             <img src="{{ $item->product->image }}" width="60" class="me-2">
@@ -79,12 +83,16 @@
                                     value="{{ $item->quantity }}"
                                     data-initial="{{ $item->quantity }}"
                                     data-product-id="{{ $item->product_id }}"
+                                    data-max="{{ $maxStock }}"
                                     min="1"
                                     readonly>
                                 <button class="btn btn-outline-secondary btn-qty-increase" type="button">
                                     <span class="qty-icon">+</span>
                                 </button>
                             </div>
+                            @if($maxStock <= 3)
+                                <div class="text-danger small">Only {{ $maxStock }} left in stock!</div>
+                            @endif
                         </td>
                         <td>₹{{ number_format($item->price_at_time,2) }}</td>
                         <td class="item-subtotal" data-subtotal="{{ $subtotal }}" data-price="{{ $item->price_at_time }}">
@@ -216,7 +224,14 @@
         const button = $(this);
         const input = $(this).siblings('.cart-qty-input');
         let qty = parseInt(input.val());
+        const maxQty = parseInt(input.data('max'));
         const productId = input.data('product-id');
+
+        if (qty >= maxQty) {
+            button.prop('disabled', true).addClass('disabled');
+            showToast("You cannot add more than " + maxQty + " of this item.", false);
+            return;
+        }
 
         qty += 1;
         input.val(qty);
@@ -229,19 +244,23 @@
     $(document).on('click', '.btn-qty-decrease', function() {
         const button = $(this);
         const input = $(this).siblings('.cart-qty-input');
+        const plusButton = button.siblings('.btn-qty-increase');
         let qty = parseInt(input.val());
         const productId = input.data('product-id');
+        const maxQty = parseInt(input.data('max'));
 
         if (qty > 1) {
             qty -= 1;
             input.val(qty);
+            if (qty < maxQty) {
+                plusButton.prop('disabled', false).removeClass('disabled');
+            }
             setButtonLoading(button, true);
             updateCartQty(productId, qty, input, function() {
                 const newIcon = qty === 1 ? '🗑️' : '−';
                 setButtonLoading(button, false, newIcon);
             });
         } else {
-            // Qty is 1 — treat this as REMOVE
             bootbox.confirm("Remove this product from cart?", function(result) {
                 if (result) {
                     setButtonLoading(button, true);

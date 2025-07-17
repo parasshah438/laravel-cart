@@ -17,4 +17,14 @@ class ProductStock extends Model
     {
         return $this->qty >= $requiredQty;
     }
+
+    public function isLowStock(int $threshold = 3): bool
+    {
+        return $this->qty > 0 && $this->qty <= $threshold;
+    }
+
+    public function isOutOfStock(): bool
+    {
+        return $this->qty <= 0;
+    }
 }

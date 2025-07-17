@@ -7,7 +7,7 @@ use App\Models\Product;
 use App\Http\Controllers\WishlistController;
 
 Route::get('/', function () {
-    $products = Product::all();
+    $products = Product::with('stocks')->get();
     $wishlistProductIds = auth()->check()
     ? auth()->user()->wishlist()->pluck('product_id')
     : collect();
