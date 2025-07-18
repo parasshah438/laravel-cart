@@ -1,19 +1,12 @@
 <?php
 
-use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\CartController;
-use App\Models\Product;
 use App\Http\Controllers\WishlistController;
+use App\Http\Controllers\FrontendController;
 
-Route::get('/', function () {
-    $products = Product::with('stocks')->get();
-    $wishlistProductIds = auth()->check()
-    ? auth()->user()->wishlist()->pluck('product_id')
-    : collect();
-    return view('welcome', compact('products','wishlistProductIds'));
-});
-
+Route::get('/', [FrontendController::class, 'index'])->name('front.index');
 Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
