@@ -66,14 +66,18 @@ class CartService
         $cart->items()->where('product_id', $productId)->delete();
     }
 
-    public function getCartItems(bool $onlySaved = false)
+    public function getCartItems(bool $onlySaved = false, ?int $perPage = null, ?int $page = null)
     {
         $cart = $this->getOrCreateCart();
-        return $cart->items()
+        $query =  $cart->items()
             ->with('product')
-            ->where('saved_for_later', $onlySaved)
-            ->get();
-            //return $this->getOrCreateCart()->items()->with('product')->get();
+            ->where('saved_for_later', $onlySaved);
+
+        if ($perPage && $page) {
+            return $query->paginate($perPage, ['*'], 'page', $page);
+        }
+        return $query->get();
+        //return $this->getOrCreateCart()->items()->with('product')->get();
     }
 
     public function mergeSessionCartToUser()

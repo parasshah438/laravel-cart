@@ -39,10 +39,12 @@ Route::post('/cart/remove', [CartController::class, 'remove'])->name('cart.remov
 
 //Cart routes
 Route::get('/cart', [CartController::class, 'view'])->name('cart.view');
+Route::get('/cart/load-more', [CartController::class, 'loadMore'])->name('cart.loadMore');
 Route::get('/cart/total', [CartController::class, 'getTotal'])->name('cart.total');
 Route::post('/cart/add', [CartController::class, 'ajaxAdd'])->name('cart.ajaxAdd');
 Route::post('/cart/update', [CartController::class, 'ajaxUpdate'])->name('cart.ajaxUpdate');
 Route::post('/cart/remove', [CartController::class, 'ajaxRemove'])->name('cart.ajaxRemove');
 Route::post('/cart/clear', [CartController::class, 'clear'])->name('cart.clear');
+Route::get('/cart/count', [CartController::class, 'getCartCount'])->name('cart.count');
 
 require __DIR__.'/auth.php';

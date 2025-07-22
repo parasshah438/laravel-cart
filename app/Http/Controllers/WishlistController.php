@@ -17,9 +17,24 @@ class WishlistController extends Controller
         $this->cart = $cart;
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $wishlistItems = Wishlist::with('product')->where('user_id', Auth::id())->get();
+        $perPage = 2;
+
+        $wishlistItems = Wishlist::with('product')
+        ->where('user_id', Auth::id())
+        ->latest()
+        ->paginate($perPage);
+
+        if ($request->ajax()) {
+            $html = view('partials._wishlist_card', compact('wishlistItems'))->render();
+            return response()->json([
+                'html' => view('partials._wishlist_card', compact('wishlistItems'))->render(),
+                'hasMorePages' => $wishlistItems->hasMorePages(),
+                'nextPage' => $wishlistItems->currentPage() + 1
+            ]);
+        }
+
         return view('wishlist.index', compact('wishlistItems'));
     }
 

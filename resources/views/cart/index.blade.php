@@ -13,9 +13,17 @@
 </head>
 <body>
     <div class="container mt-4">
+        <h2 class="mt-4">Your Cart</h2>
+        Total Items:
+        <span class="badge bg-primary">
+            <i class="bi bi-cart"></i>
+            <span id="cart-count">{{ $cartCount ?? 0 }}</span>
+        </span>
+    </div>
+    <div class="container mt-4">
         <div id="saved-items-section">
-            @if($savedItems->isNotEmpty())
             <h5 class="mt-5">Saved for Later</h5>
+            @if($savedItems->isNotEmpty())
             <table class="table table-bordered">
                 @foreach($savedItems as $item)
                 <tr>
@@ -43,12 +51,14 @@
             @else
             <div class="alert alert-info">No items saved for later.</div>
             @endif
-        </div>
+        </div>  
     </div>
+
     <div class="container py-4">
         <div id="cart-items-section">
+            <h5 class="mb-3">Cart Items</h5>
             @if($items->isEmpty())
-            <div class="alert alert-info">Your cart is empty.</div>
+            <div class="alert alert-info empty-cart">Your cart is empty.</div>
             @else
             <table class="table table-bordered">
                 <thead>
@@ -60,71 +70,25 @@
                         <th>Actions</th>
                     </tr>
                 </thead>
-                <tbody>
-                    @php $total = 0; @endphp
-                    @foreach($items as $item)
-                    @php $subtotal = $item->quantity * $item->price_at_time; $total += $subtotal; @endphp
-                    @php
-                        $stock = $item->product->stocks->first();
-                        $maxStock = $stock ? $stock->qty : 0;
-                    @endphp
-                    <tr>
-                        <td>
-                            <img src="{{ $item->product->image }}" width="60" class="me-2">
-                            {{ $item->product->name }}
-                        </td>
-                        <td>
-                            <div class="input-group input-group-sm quantity-group" style="max-width: 140px;">
-                                <button class="btn btn-outline-secondary btn-qty-decrease" type="button">
-                                    <span class="qty-icon">{{ $item->quantity <= 1 ? '🗑️' : '−' }}</span>
-                                </button>
-                                <input type="number"
-                                    class="form-control text-center cart-qty-input"
-                                    value="{{ $item->quantity }}"
-                                    data-initial="{{ $item->quantity }}"
-                                    data-product-id="{{ $item->product_id }}"
-                                    data-max="{{ $maxStock }}"
-                                    min="1"
-                                    readonly>
-                                <button class="btn btn-outline-secondary btn-qty-increase" type="button">
-                                    <span class="qty-icon">+</span>
-                                </button>
-                            </div>
-                            @if($maxStock <= 3)
-                                <div class="text-danger small">Only {{ $maxStock }} left in stock!</div>
-                            @endif
-                        </td>
-                        <td>₹{{ number_format($item->price_at_time,2) }}</td>
-                        <td class="item-subtotal" data-subtotal="{{ $subtotal }}" data-price="{{ $item->price_at_time }}">
-                            ₹{{ number_format($subtotal, 2) }}
-                        </td>
-                        <td>
-                            <div class="d-flex flex-column gap-1">
-                                <form method="POST" action="{{ route('cart.moveToWishlist') }}" class="move-to-wishlist-form">
-                                    @csrf
-                                    <input type="hidden" name="product_id" value="{{ $item->product_id }}">
-                                    <button type="submit" class="btn btn-outline-secondary btn-sm w-100">♡ Move to Wishlist</button>
-                                </form>
-                                <form method="POST" action="{{ route('cart.ajaxRemove') }}" class="remove-cart-form">
-                                    @csrf
-                                    <input type="hidden" name="product_id" value="{{ $item->product_id }}">
-                                    <button type="submit" class="btn btn-danger btn-sm w-100">Remove</button>
-                                </form>
-                                <form method="POST" action="{{ route('cart.saveForLater') }}" class="save-for-later-form">
-                                    @csrf
-                                    <input type="hidden" name="product_id" value="{{ $item->product_id }}">
-                                    <button type="submit" class="btn btn-sm btn-outline-warning w-100">Save for Later</button>
-                                </form>
-                            </div>
-                        </td>
-                    </tr>
-                    @endforeach
-                    <tr class="cart-total-row">
-                        <td colspan="3"><strong>Total</strong></td>
-                        <td colspan="2"><strong>₹<span id="cart-total">{{ number_format($total, 2) }}</span></strong></td>
-                    </tr>
+                <tbody id="cart-items-container">
+                    @include('partials._cart_cards', ['items' => $items])
                 </tbody>
+                <tfoot>
+                <tr class="cart-total-row">
+                    <td colspan="3"><strong>Total</strong></td>
+                    <td colspan="2"><strong>₹<span id="cart-total">
+                        {{ number_format($items->sum(fn($i) => $i->quantity * $i->price_at_time), 2) }}
+                    </span></strong></td>
+                </tr>
+            </tfoot>
             </table>
+            @if($items instanceof \Illuminate\Pagination\LengthAwarePaginator && $items->hasMorePages())
+                <div class="text-center mt-3">
+                    <button class="btn btn-outline-primary" id="load-more-cart" data-next-page="{{ $items->currentPage() + 1 }}">
+                        Load More
+                    </button>
+                </div>
+            @endif
             @endif
             @if(!$items->isEmpty())
             <div class="mb-3">
@@ -150,6 +114,12 @@
             stopOnFocus: true,
         }).showToast();
     }
+
+    function updateCartCount() {
+        $.get("{{ route('cart.count') }}", function (data) {
+            $('#cart-count').text(data.count);
+        });
+    }   
 
     function setButtonLoading(button, loading = true, nextIcon = null) {
         const icon = button.find('.qty-icon');
@@ -275,10 +245,17 @@
                             showToast(response.message, true);
                             input.closest('tr').fadeOut(400, function() {
                                 $(this).remove();
+                                updateCartCount();
                                 updateCartTotal();
-                                if ($('tbody tr').length <= 1) {
-                                    $('table.table').remove();
-                                    $('.container').prepend('<div class="alert alert-info">Your cart is now empty.</div>');
+                                if ($('tbody tr[data-product-row]').length === 0) {
+                                    showToast('Cart is now empty.', false);
+                                    $('table.table').fadeOut(500, function () {
+                                        $('table.table').remove();
+                                        setTimeout(function () {
+                                            window.location.reload();
+                                        }, 1000);
+                                    });
+                                    
                                 }
                             });
                         },
@@ -337,7 +314,6 @@
 
     $(document).on('submit', '.remove-cart-form', function(e) {
         e.preventDefault();
-
         const form = $(this);
         const submitBtn = form.find('button[type="submit"]');
         const row = form.closest('tr'); // get the row to remove on success
@@ -363,14 +339,20 @@
                         data: form.serialize(),
                         success: function(response) {
                             showToast(response.message, true);
-                            updateCartTotal();
-                            if ($('tbody tr').length == 2) {
-                                $('table.table').remove();  
-                                $('#clear-cart-btn').hide();
-                                $('.container').prepend('<div class="alert alert-info">Your cart is now empty.</div>');
-                            }
                             row.fadeOut(400, function() {
                                 $(this).remove();
+                                updateCartCount();
+                                updateCartTotal();
+                                if ($('tbody tr[data-product-row]').length === 0) {
+                                    showToast('Cart is now empty.', false);
+                                    $('table.table').fadeOut(500, function () {
+                                        $('table.table').remove();
+                                        setTimeout(function () {
+                                            window.location.reload();
+                                        }, 1000);
+                                    });
+                                    
+                                }
                             });
                         },
                         error: function(xhr) {
@@ -396,9 +378,9 @@
                     },
                     success: function(response) {
                         showToast(response.message, true);
-                        $('table.table').remove();
-                        $('#clear-cart-btn').hide();
-                        $('.container').prepend('<div class="alert alert-info">Your cart is now empty.</div>');
+                        setTimeout(function () {
+                            window.location.reload();
+                        }, 2000);
                     },
                     error: function() {
                         showToast('Failed to clear cart.', false);
@@ -412,7 +394,6 @@
         e.preventDefault();
         const form = $(this);
         const row = form.closest('tr');
-
         const button = form.find('button');
         button.prop('disabled', true).text('Moving...');
         $.ajax({
@@ -422,11 +403,19 @@
             success: function(response) {
                 if (response.status) {
                     showToast(response.message, true);
-
-                    //Remove row from DOM
-                    row.fadeOut(300, function() {
+                    row.fadeOut(400, function() {
                         $(this).remove();
-                        updateCartTotal(); // optional
+                        updateCartCount();
+                        updateCartTotal();
+                        if ($('tbody tr[data-product-row]').length === 0) {
+                            showToast('Cart is now empty.', false);
+                            $('table.table').fadeOut(500, function () {
+                                $('table.table').remove();
+                                setTimeout(function () {
+                                    window.location.reload();
+                                }, 1000);
+                            });
+                        }
                     });
                 } else {
                     showToast(response.message || 'Failed to move item.', false);
@@ -455,9 +444,19 @@
             success: function(response) {
                 if (response.status) {
                     showToast(response.message, true);
-                    row.fadeOut(300, function() {
+                    row.fadeOut(400, function() {
                         $(this).remove();
-                        refreshCartSections();
+                        updateCartCount();
+                        updateCartTotal();
+                        if ($('tbody tr[data-product-row]').length === 0) {
+                            showToast('Cart is now empty.', false);
+                            $('table.table').fadeOut(500, function () {
+                                $('table.table').remove();
+                                setTimeout(function () {
+                                    window.location.reload();
+                                }, 1000);
+                            });
+                        }
                     });
                 } else {
                     showToast(response.message, false);
@@ -471,4 +470,34 @@
             }
         });
     });
+
+    $(document).on('click', '#load-more-cart', function () {
+        const button = $(this);
+        const nextPage = button.data('next-page');
+        $.ajax({
+            url: "{{ route('cart.loadMore') }}",
+            type: 'GET',
+            data: { page: nextPage },
+            beforeSend: function () {
+                button.prop('disabled', true).text('Loading...');
+            },
+            success: function (response) {
+                $('#cart-items-container').append(response.html);
+                $('#load-more-cart').data('next-page', response.nextPage);
+                if (!response.hasMorePages) $('#load-more-cart').hide();
+                if (response.hasMorePages) {
+                    button.data('next-page', response.nextPage).prop('disabled', false).text('Load More');
+                } else {
+                    button.remove();
+                    showToast('No more items in cart.', false);
+                }
+
+                // Optional: Update total dynamically
+                if (response.newTotal !== undefined) {
+                    $('#cart-total').text(response.newTotal);
+                }
+            }
+        });
+    });
 </script>
+

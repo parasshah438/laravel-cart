@@ -35,9 +35,11 @@
            @include('partials._product_cards', ['products' => $products, 'wishlistProductIds' => $wishlistProductIds])
         </div>
         <!-- Load More Button -->
+        @if ($products->hasMorePages())
         <div class="text-center mt-4">
-            <button id="loadMoreBtn" class="btn btn-outline-primary" data-page="2">Load More</button>
+            <button id="loadMoreBtn" class="btn btn-outline-primary" data-next-page="{{ $products->currentPage() + 1 }}">Load More</button>
         </div>
+        @endif
     </div>
 </body>
 </html>
@@ -109,7 +111,7 @@
     $(document).ready(function() {
         $('#loadMoreBtn').on('click', function() {
             const button = $(this);
-            const nextPage = button.data('page');
+            const nextPage = button.data('next-page');
             button.prop('disabled', true).text('Loading...');
             $.ajax({
                 url: `?page=${nextPage}`,
@@ -117,7 +119,7 @@
                 success: function(response) {
                     $('#productGrid').append(response.html);
                     if (response.hasMorePages) {
-                        button.data('page', response.nextPage).prop('disabled', false).text('Load More');
+                        button.data('next-page', response.nextPage).prop('disabled', false).text('Load More');
                     } else {
                         button.remove();
                         showToast('No more products to display.', false);

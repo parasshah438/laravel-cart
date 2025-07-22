@@ -18,12 +18,23 @@ class CartController extends Controller
         $this->cart = $cart;
     }
 
-    public function view()
-    {
-        $items = $this->cart->getCartItems();
+    public function view(Request $request)
+    {   
+        $perPage = 5;
+        $page = $request->input('page', 1);
+        $items = $this->cart->getCartItems(false, $perPage, $page);
         $savedItems = $this->cart->getCartItems(true); // saved_for_later = true
 
-        return view('cart.index', compact('items','savedItems'));
+        if ($request->ajax()) {
+            $html = view('partials._cart_items', compact('items'))->render();
+            return response()->json([
+                'html' => $html,
+                'nextPage' => $page + 1,
+                'hasMorePages' => $items->hasMorePages(),
+            ]);
+        }
+        $cartCount = $this->cart->getCartItems(false)->count();
+        return view('cart.index', compact('items','savedItems','cartCount'));
     }
 
     public function add(Request $request)
@@ -237,5 +248,31 @@ class CartController extends Controller
         $item->save();
 
         return response()->json(['status' => true, 'message' => 'Item saved for later.']);
+    }
+
+    public function loadMore(Request $request)
+    {
+        $perPage = 5;
+        $page = $request->input('page', 1);
+        
+        $items = $this->cart->getCartItems(false, $perPage, $page);
+        $html = view('partials._cart_cards', ['items' => $items])->render();
+
+        $newTotal = $items->sum(function ($item) {
+            return $item->quantity * $item->price_at_time;
+        });
+
+        return response()->json([
+            'html' => $html,
+            'hasMorePages' => $items->hasMorePages(),
+            'nextPage' => $items->currentPage() + 1,
+            'newTotal' => number_format($newTotal, 2),
+        ]);
+    }
+
+    public function getCartCount()
+    {
+        $count = $this->cart->getCartItems(false)->count();
+        return response()->json(['count' => $count]);
     }
 }
