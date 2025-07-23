@@ -27,6 +27,11 @@ class CartService
         return Cart::firstOrCreate(['session_id' => $sessionId]);
     }
 
+    public function getCurrentCart()
+    {
+        return $this->getOrCreateCart(); // internally still uses protected
+    }
+
     public function add($productId, $quantity = 1, $options = [])
     {
         $product = Product::findOrFail($productId);

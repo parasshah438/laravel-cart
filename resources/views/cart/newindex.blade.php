@@ -28,13 +28,57 @@
 
     <div class="container py-4">
         <div id="cart-items-section">
-            @include('partials.cart-items-refresh', [
-                'items' => $items,
-                'subtotal' => $subtotal,
-                'discount' => $discount,
-                'total' => $total,
-                'cart' => $cart,
-            ])
+            <h5 class="mb-3">Cart Items</h5>
+            @if($items->isEmpty())
+            <div class="alert alert-info empty-cart">Your cart is empty.</div>
+            @else
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Qty</th>
+                        <th>Price</th>
+                        <th>Subtotal</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="cart-items-container">
+                    @include('partials._cart_cards', ['items' => $items])
+                </tbody>
+                
+                <tfoot id="cart-totals-container">
+                    @include('partials._cart_totals', compact('subtotal', 'discount', 'total', 'cart'))
+                </tfoot>
+            </table>
+            @if($items instanceof \Illuminate\Pagination\LengthAwarePaginator && $items->hasMorePages())
+                <div class="text-center mt-3">
+                    <button class="btn btn-outline-primary" id="load-more-cart" data-next-page="{{ $items->currentPage() + 1 }}">
+                        Load More
+                    </button>
+                </div>
+            @endif
+            @endif
+            @if(!$items->isEmpty())
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Apply Coupon</h5>
+                    <div class="input-group">
+                        <input type="text" id="couponCode" class="form-control" placeholder="Enter coupon code">
+                        <button class="btn btn-primary" id="applyCouponBtn">Apply</button>
+                    </div>
+                    <div id="couponMessage" class="mt-2 text-success d-none"></div>
+                    <div id="removeCouponContainer" class="mt-2 d-none">
+                        <button class="btn btn-sm btn-danger" id="removeCouponBtn">Remove Coupon</button>
+                    </div>
+                </div>
+            </div>
+            <div class="mb-3">
+                <button class="btn btn-danger btn-sm" id="clear-cart-btn">
+                    <i class="bi bi-trash"></i> Clear Cart
+                </button>
+            </div>
+            @endif
+            <a href="{{ url('/') }}" class="btn btn-primary">Continue Shopping</a>
         </div>
     </div>
 </body>
@@ -57,24 +101,7 @@
         $.get("{{ route('cart.count') }}", function (data) {
             $('#cart-count').text(data.count);
         });
-    }  
-    
-    function updateCartTotal() {
-        $.get("{{ route('cart.summary') }}", function(response) {
-            if (response.status) {
-                $('#cart-subtotal').text(response.subtotal);
-                $('#cart-total').text(response.total);
-                if (response.coupon_code) {
-                    $('#cart-discount-row').show();
-                    $('#coupon-code').text(response.coupon_code);
-                    $('#cart-discount').text(response.discount);
-                } else {
-                    $('#cart-discount-row').hide();
-                }
-            }
-        });
-    }
-
+    }   
 
     function setButtonLoading(button, loading = true, nextIcon = null) {
         const icon = button.find('.qty-icon');
@@ -89,7 +116,7 @@
         }
     }
 
-    function updateCartTotalbk() {
+    function updateCartTotal() {
         $.get("{{ route('cart.total') }}", function(response) {
             if (response.status) {
                 $('#cart-total').text(response.formatted);
@@ -161,7 +188,6 @@
 
     function showEmptyCartMessage() {
         $('#cart-items-section').html(`
-            <h5 class="mb-3">Cart Items</h5>
             <div class="text-center py-4">
                 <h5>Your cart is empty.</h5>
                 <a href="/shop" class="btn btn-primary mt-3">Continue Shopping</a>
@@ -442,8 +468,8 @@
                         // Update both cart and saved items
                         refreshCart();
                         refreshSavedItems();
-                        updateCartCount();
-                        updateCartTotal();
+                       // updateCartCount();
+                       // updateCartTotal();
 
                         // Check and handle empty cart case (no page reload!)
                         if (isSaveForLater && $('#cart-items-section table tbody tr[data-product-row]').length === 0) {

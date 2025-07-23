@@ -9,6 +9,10 @@ use App\Models\Product;
 use App\Models\ProductStock;
 use App\Models\Wishlist;
 use App\Models\CartItem;
+use App\Models\Coupon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
+
 class CartController extends Controller
 {
     protected $cart;
@@ -18,6 +22,47 @@ class CartController extends Controller
         $this->cart = $cart;
     }
 
+    public function refreshSavedItems()
+    {
+        $savedItems = $this->cart->getCartItems(true);
+        $cartCount = $this->cart->getCartItems(false)->count();
+
+        return view('partials._saved_items', compact('savedItems', 'cartCount'));
+    }
+
+    public function refreshSavedItemsView()
+    {
+        $savedItems = $this->cart->getCartItems(true); // true = saved items
+        return view('partials.cart-saved-refresh', compact('savedItems'));
+    }
+
+    public function refreshCartView()
+    {
+        $items = $this->cart->getCartItems(false);
+        $cart = $this->cart->getCurrentCart();
+        $subtotal = $items->sum(fn($i) => $i->quantity * $i->price_at_time);
+        $discount = $cart->appliedCoupon ? $cart->appliedCoupon->calculateDiscount($subtotal) : 0;
+        $total = $subtotal - $discount;
+
+        return view('partials.cart-items-refresh', compact('items', 'subtotal', 'discount', 'total', 'cart'));
+    }
+
+
+    public function refreshCart()
+    {
+        $items = $this->cart->getCartItems(false);
+        $cart = $this->cart->getCurrentCart();
+        $subtotal = $items->sum(fn($i) => $i->quantity * $i->price_at_time);
+        $discount = $cart->appliedCoupon ? $cart->appliedCoupon->calculateDiscount($subtotal) : 0;
+        $total = $subtotal - $discount;
+
+        return response()->json([
+            'cart_items_html' => view('partials._cart_cards', compact('items'))->render(),
+            'cart_totals_html' => view('partials._cart_totals', compact('subtotal', 'discount', 'total', 'cart'))->render(),
+            'cart_count' => $items->count()
+        ]);
+    }
+
     public function view(Request $request)
     {   
         $perPage = 5;
@@ -25,8 +70,13 @@ class CartController extends Controller
         $items = $this->cart->getCartItems(false, $perPage, $page);
         $savedItems = $this->cart->getCartItems(true); // saved_for_later = true
 
+        $cart = $this->cart->getCurrentCart();
+        $subtotal = $items->sum(fn($i) => $i->quantity * $i->price_at_time);
+        $discount = $cart->appliedCoupon ? $cart->appliedCoupon->calculateDiscount($subtotal) : 0;
+        $total = $subtotal - $discount;
+
         if ($request->ajax()) {
-            $html = view('partials._cart_items', compact('items'))->render();
+            $html = view('partials._cart_cards', compact('items'))->render();
             return response()->json([
                 'html' => $html,
                 'nextPage' => $page + 1,
@@ -34,7 +84,7 @@ class CartController extends Controller
             ]);
         }
         $cartCount = $this->cart->getCartItems(false)->count();
-        return view('cart.index', compact('items','savedItems','cartCount'));
+        return view('cart.index', compact('items','cart','subtotal','discount','total','savedItems','cartCount'));
     }
 
     public function add(Request $request)
@@ -43,7 +93,7 @@ class CartController extends Controller
             'product_id' => 'required|exists:products,id',
             'quantity'   => 'nullable|integer|min:1',
         ]);
-        // Check if the product is already in the cart
+        //Check if the product is already in the cart
         $this->cart->add($request->product_id, $request->quantity ?? 1);
         return back()->with('success', 'Product added!');
     }
@@ -70,7 +120,6 @@ class CartController extends Controller
 
         return back()->with('success', 'Item removed from cart.');
     }
-
 
     // ajax
     public function ajaxAdd(Request $request)
@@ -274,5 +323,159 @@ class CartController extends Controller
     {
         $count = $this->cart->getCartItems(false)->count();
         return response()->json(['count' => $count]);
+    }
+
+    public function applyCouponbk(Request $request)
+    {
+        $request->validate(['code' => 'required|string']);
+
+        $cart = $this->cart->getCurrentCart();
+
+    
+        if ($cart->applied_coupon_id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You have already applied a coupon. Please remove it before applying another.'
+            ]);
+        }
+
+        $coupon = Coupon::where('code', $request->code)->active()->first();
+        if (!$coupon) {
+            return response()->json(['success' => false, 'message' => 'Invalid or expired coupon.']);
+        }
+
+        $subtotal = $this->cart->getCartItems(false)->sum(fn($i) => $i->quantity * $i->price_at_time);
+        if (!$coupon->isValid($subtotal)) {
+            return response()->json(['success' => false, 'message' => 'This coupon is not valid for your cart total.']);
+        }
+
+        $cart->applied_coupon_id = $coupon->id;
+        $cart->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Coupon applied successfully!',
+            'updatedCartHtml' => view('partials._cart_cards', ['items' => $this->cart->getCartItems(false)])->render(),
+            'totalsHtml' => view('partials._cart_totals', [
+                'cart' => $cart->fresh(),
+                'items' => $this->cart->getCartItems(false),
+                'subtotal' => $subtotal,
+                'discount' => $coupon->calculateDiscount($subtotal),
+                'total' => $subtotal - $coupon->calculateDiscount($subtotal),
+            ])->render()
+        ]);
+    }
+
+    public function applyCoupon(Request $request)
+    {
+        $request->validate(['code' => 'required|string']);
+
+        $cart = $this->cart->getCurrentCart();
+        $items = $this->cart->getCartItems(false);
+
+        //Optional: Rate limiting to prevent abuse
+        if (RateLimiter::tooManyAttempts("coupon:{$request->ip()}", 5)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Too many attempts. Try again later.'
+            ], 429);
+        }
+        RateLimiter::hit("coupon:{$request->ip()}", 60); // 5 tries per minute
+
+        //Security check: Ensure items belong to current cart
+        if ($items->contains(fn($item) => $item->cart_id !== $cart->id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized cart access.'
+            ], 403);
+        }
+
+        if ($cart->applied_coupon_id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You have already applied a coupon. Please remove it before applying another.'
+            ]);
+        }
+
+        $coupon = Coupon::where('code', $request->code)->active()->first();
+        if (!$coupon) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid or expired coupon.'
+            ]);
+        }
+
+        $subtotal = $items->sum(fn($i) => $i->quantity * $i->price_at_time);
+        if (!$coupon->isValid($subtotal)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This coupon is not valid for your cart total.'
+            ]);
+        }
+
+        //Clamp discount to never exceed subtotal
+        $discount = min($coupon->calculateDiscount($subtotal), $subtotal);
+        $total = $subtotal - $discount;
+
+        //Optional: Wrap in DB transaction
+        DB::transaction(function () use ($cart, $coupon) {
+            $cart->applied_coupon_id = $coupon->id;
+            $cart->save();
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Coupon applied successfully!',
+            'updatedCartHtml' => view('partials._cart_cards', ['items' => $items])->render(),
+            'totalsHtml' => view('partials._cart_totals', [
+                'cart' => $cart->fresh(),
+                'items' => $items,
+                'subtotal' => $subtotal,
+                'discount' => $discount,
+                'total' => $total,
+            ])->render()
+        ]);
+    }
+
+    public function removeCoupon(Request $request)
+    {
+        $cart = $this->cart->getCurrentCart();
+
+        if (!$cart || !$cart->applied_coupon_id) {
+            return response()->json(['success' => false, 'message' => 'No coupon to remove.']);
+        }
+
+        $cart->applied_coupon_id = null;
+        $cart->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Coupon removed successfully.',
+            'updatedCartHtml' => view('partials._cart_cards', ['items' => $this->cart->getCartItems(false)])->render(),
+            'updatedTotalsHtml' => view('partials._cart_totals', [
+                'cart' => $cart->fresh(),
+                'items' => $this->cart->getCartItems(false),
+                'subtotal' => $this->cart->getCartItems(false)->sum(fn($i) => $i->quantity * $i->price_at_time),
+                'discount' => 0,
+                'total' => $this->cart->getCartItems(false)->sum(fn($i) => $i->quantity * $i->price_at_time)
+            ])->render(),
+        ]);
+    }
+
+    public function getCartSummary()
+    {
+        $items = $this->cart->getCartItems(false);
+        $cart = $this->cart->getCurrentCart();
+        $subtotal = $items->sum(fn($i) => $i->quantity * $i->price_at_time);
+        $discount = $cart->appliedCoupon ? $cart->appliedCoupon->calculateDiscount($subtotal) : 0;
+        $total = $subtotal - $discount;
+
+        return response()->json([
+            'status' => true,
+            'subtotal' => number_format($subtotal, 2),
+            'discount' => number_format($discount, 2),
+            'total' => number_format($total, 2),
+            'coupon_code' => $cart->appliedCoupon->code ?? null,
+        ]);
     }
 }

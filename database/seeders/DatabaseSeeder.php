@@ -12,10 +12,13 @@ class DatabaseSeeder extends Seeder
     {
         //User::factory(10)->create();
 
+        //Clear existing users
+        User::truncate();
+        
         User::factory()->create([
             'name' => 'jak',
             'email' => 'jak@example.com',
-            'password' => bcrypt('password'),
+            'password' => bcrypt('123456'),
             'email_verified_at' => now(),
             'remember_token' => null,
             'created_at' => now(),
@@ -24,6 +27,6 @@ class DatabaseSeeder extends Seeder
 
         //PRODUCTION SEEDER
         $this->call(ProductSeeder::class);
-        
+        $this->call(CouponSeeder::class);
     }
 }

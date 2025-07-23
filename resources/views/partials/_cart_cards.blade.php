@@ -7,7 +7,8 @@
 @endphp
 <tr data-product-row="{{ $item->product_id }}" class="cart-item-row">
     <td>
-        <img src="{{ $item->product->image }}" width="60" class="me-2">
+       <img src="{{ filter_var($item->product->image, FILTER_VALIDATE_URL) ? trim($item->product->image, '"') : asset($item->product->image) }}" width="60" class="me-2">
+
         {{ $item->product->name }}
     </td>
     <td>

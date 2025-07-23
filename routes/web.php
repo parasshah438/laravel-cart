@@ -30,6 +30,9 @@ Route::middleware('auth')->group(function () {
 Route::post('/cart/save-for-later', [CartController::class, 'saveForLater'])->name('cart.saveForLater');
 Route::post('/cart/move-to-cart', [CartController::class, 'moveToCartFromSaved'])->name('cart.moveToCartFromSaved');
 
+Route::post('/cart/apply-coupon', [CartController::class, 'applyCoupon'])->name('cart.applyCoupon');
+Route::post('/cart/remove-coupon', [CartController::class, 'removeCoupon'])->name('cart.removeCoupon');
+
 /*
 Route::get('/cart', [CartController::class, 'view'])->name('cart.view');
 Route::post('/cart/add', [CartController::class, 'add'])->name('cart.add');
@@ -46,5 +49,8 @@ Route::post('/cart/update', [CartController::class, 'ajaxUpdate'])->name('cart.a
 Route::post('/cart/remove', [CartController::class, 'ajaxRemove'])->name('cart.ajaxRemove');
 Route::post('/cart/clear', [CartController::class, 'clear'])->name('cart.clear');
 Route::get('/cart/count', [CartController::class, 'getCartCount'])->name('cart.count');
+Route::get('/cart/saved-items-refresh', [CartController::class, 'refreshSavedItemsView'])->name('cart.savedItems.refresh');
+Route::get('/cart/items/refresh', [CartController::class, 'refreshCartView'])->name('cart.items.refresh');
+Route::get('/cart/summary', [CartController::class, 'getCartSummary'])->name('cart.summary');
 
 require __DIR__.'/auth.php';
