@@ -10,9 +10,13 @@
                 {{ auth()->check() && $wishlistProductIds->contains($product->id) ? '❤️' : '🤍' }}
             </span>
         </button>
-        <img src="{{ $product->image }}" class="card-img-top" alt="{{ $product->name }}" style="height: 180px; object-fit: cover;">
+        <a href="{{ route('product.show', $product->slug) }}" class="text-decoration-none text-dark">
+            <img src="{{ $product->image }}" class="card-img-top" alt="{{ $product->name }}" style="height: 180px; object-fit: cover;">
+        </a>
         <div class="card-body d-flex flex-column">
-            <h5 class="card-title">{{ $product->name }}</h5>
+            <h5 class="card-title">
+                <a href="{{ route('product.show', $product->slug) }}" class="text-decoration-none text-dark">{{ $product->name }}</a>
+            </h5>
             <p class="card-text text-muted mb-2">₹{{ $product->price }}</p>
             <form method="POST" action="{{ route('cart.ajaxAdd') }}" class="mt-auto add-to-cart-form">
                 @csrf

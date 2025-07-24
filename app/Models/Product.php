@@ -11,6 +11,7 @@ class Product extends Model
         'description',
         'price',
         'image',
+        'slug', // Ensure slug is fillable for mass assignment
         'status', // active, inactive, out_of_stock
     ];
 
