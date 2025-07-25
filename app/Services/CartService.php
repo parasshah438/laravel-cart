@@ -111,7 +111,7 @@ class CartService
 
             //Cleanup old guest cart
             $sessionCart->delete();
-            session()->forget('cart_session_id');
+            
         });
     }
 

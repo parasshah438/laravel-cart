@@ -40,6 +40,8 @@ class AuthenticatedSessionController extends Controller
 
         app(RecentlyViewedService::class)->mergeGuestToUser();
 
+        session()->forget('cart_session_id');
+
         return redirect()->intended(route('dashboard', absolute: false));
     }
 

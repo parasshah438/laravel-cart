@@ -11,25 +11,28 @@ class RecentlyViewedService
         if (!auth()->check()) {
             return;
         }
-
+        
         $userId = auth()->id();
-        $sessionId = Session::getId();
-
+        $sessionId = session()->get('cart_session_id');
         $guestViews = RecentlyViewedProduct::where('session_id', $sessionId)->get();
+        
         foreach ($guestViews as $view) {
-            //Prevent duplication
-            RecentlyViewedProduct::updateOrCreate(
-                [
-                    'user_id' => $userId,
-                    'product_id' => $view->product_id,
-                ],
-                [
-                    'updated_at' => now()
-                ]
-            );
+            // Check if a record already exists for this user & product
+            $existing = RecentlyViewedProduct::where('user_id', $userId)
+                ->where('product_id', $view->product_id)
+                ->first();
 
-            //Delete the guest record
-            $view->delete();
+            if ($existing) {
+                // Record already exists for user, so discard guest record
+                $view->delete();
+            } else {
+                // Just update the guest record to now belong to the user
+                $view->update([
+                    'user_id'    => $userId,
+                    'session_id' => null,
+                    'updated_at' => now(),
+                ]);
+            }
         }
     }
 }

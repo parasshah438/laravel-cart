@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Session;
 use App\Models\Product;
 use App\Models\RecentlyViewedProduct;
+use App\Services\RecentlyViewedService;
+use Illuminate\Support\Str;
 
 class ProductController extends Controller
 {
@@ -14,7 +16,12 @@ class ProductController extends Controller
     {
         $product = Product::where('slug', $slug)->firstOrFail();
 
-        $sessionId = Session::getId();
+        // Record the product as recently viewed
+        $sessionId = session()->get('cart_session_id');
+        if (!$sessionId) {
+            $sessionId = Str::uuid();
+            session()->put('cart_session_id', $sessionId);
+        }
 
         $query = RecentlyViewedProduct::where('product_id', $product->id);
 
@@ -36,29 +43,42 @@ class ProductController extends Controller
             ]);
         }
 
+        $wishlistProductIds = auth()->check()
+            ? auth()->user()->wishlist()->pluck('product_id')
+            : collect();
+
         $similarProducts = Product::where('id', '!=', $product->id)
             ->inRandomOrder()
             ->take(10)
             ->get();
 
-        return view('products.show', compact('product', 'similarProducts'));
+        return view('products.show', compact('product', 'similarProducts', 'wishlistProductIds'));
     }
 
-    public function getRecentlyViewedProducts()
-    {
-        $query = RecentlyViewedProduct::with('product')
-            ->orderByDesc('updated_at')
-            ->limit(10);
+public function getRecentlyViewedProducts()
+{
 
-        if (auth()->check()) {
-            $query->where('user_id', auth()->id());
-        } else {
-            $query->where('session_id', Session::getId());
+    $query = RecentlyViewedProduct::with('product')
+        ->orderByDesc('updated_at')
+        ->limit(10);
+
+    if (auth()->check()) {
+        $query->where('user_id', auth()->id());
+    } else {
+        $sessionId = session()->get('cart_session_id');
+        if (!$sessionId) {
+            // Return early with empty collection if no session ID
+            return view('products.recently-viewed', ['recentlyViewed' => collect()]);
         }
-
-        $recentlyViewed = $query->get()->pluck('product');
-        return view('product.recently-viewed', compact('recentlyViewed'));
+        $query->where('session_id', $sessionId);
     }
+
+
+    $recentlyViewed = $query->get()->pluck('product')->filter();
+    
+    dd($recentlyViewed);
+    return view('products.recently-viewed', compact('recentlyViewed'));
+}
 
     public function clearRecentlyViewed()
     {

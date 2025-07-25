@@ -19,5 +19,9 @@ class Product extends Model
     {
         return $this->hasMany(ProductStock::class);
     }
-    
+
+    public function media()
+    {
+        return $this->hasMany(ProductMedia::class)->orderBy('sort_order');
+    }
 }
