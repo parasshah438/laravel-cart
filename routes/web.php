@@ -1,11 +1,8 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\CartController;
-use App\Http\Controllers\WishlistController;
-use App\Http\Controllers\FrontendController;
-use App\Http\Controllers\ProductController;
+use App\Http\Controllers\{ProfileController, CartController, WishlistController, FrontendController, ProductController};
+
 
 Route::get('/', [FrontendController::class, 'index'])->name('front.index');
 Route::get('/dashboard', function () {
@@ -21,7 +18,8 @@ Route::middleware('auth')->group(function () {
 Route::get('/product/{slug}', [ProductController::class, 'showProduct'])->name('product.show');
 Route::get('/recently-viewed', [ProductController::class, 'getRecentlyViewedProducts'])->name('product.recentlyViewed');
 Route::post('/recently-viewed/clear', [ProductController::class, 'clearRecentlyViewed'])->name('recently-viewed.clear')->middleware('auth');
-
+//trendingProducts
+Route::get('/trending-products', [ProductController::class, 'getTrendingProducts'])->name('product.trending');
 
 //wishlist
 Route::middleware('auth')->group(function () {

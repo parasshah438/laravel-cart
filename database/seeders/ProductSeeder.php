@@ -714,7 +714,7 @@ class ProductSeeder extends Seeder
                 'slug' => 'smart-plant-monitor',
                 'description' => 'Smart plant monitor with soil moisture sensing.',
                 'price' => 1499,
-                'image' => 'https://placehold.co/400?text=Smart+Plant+Monitor',69
+                'image' => 'https://placehold.co/400?text=Smart+Plant+Monitor',
             ],
         ];
 

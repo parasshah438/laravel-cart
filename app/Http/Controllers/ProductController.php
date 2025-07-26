@@ -9,6 +9,9 @@ use App\Models\Product;
 use App\Models\RecentlyViewedProduct;
 use App\Services\RecentlyViewedService;
 use Illuminate\Support\Str;
+use App\Models\Wishlist;
+use App\Models\Cart;
+use App\Models\CartItem;
 
 class ProductController extends Controller
 {
@@ -51,6 +54,7 @@ class ProductController extends Controller
             ->inRandomOrder()
             ->take(10)
             ->get();
+
 
         return view('products.show', compact('product', 'similarProducts', 'wishlistProductIds'));
     }
@@ -99,5 +103,20 @@ public function getRecentlyViewedProducts()
         }
 
         return redirect()->route('product.recentlyViewed');
+    }
+
+    public function getTrendingProducts()
+    {
+        $trendingProducts = Product::withCount([
+            'views as recent_views_count' => function ($query) {
+                $query->where('created_at', '>=', now()->subDays(7));
+            },
+            'wishlists as wishlists_count'
+        ])
+        ->havingRaw('(recent_views_count * 2 + wishlists_count) > 0')
+        ->orderByRaw('(recent_views_count * 2 + wishlists_count) DESC')
+        ->get();
+
+        return view('products.trending', compact('trendingProducts'));
     }
 }

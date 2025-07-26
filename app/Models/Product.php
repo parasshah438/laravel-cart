@@ -24,4 +24,14 @@ class Product extends Model
     {
         return $this->hasMany(ProductMedia::class)->orderBy('sort_order');
     }
+
+    public function wishlists()
+    {
+        return $this->hasMany(Wishlist::class);
+    }
+
+    public function views()
+    {
+        return $this->hasMany(RecentlyViewedProduct::class);
+    }
 }
