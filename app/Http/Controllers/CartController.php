@@ -12,6 +12,7 @@ use App\Models\CartItem;
 use App\Models\Coupon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Validator;
 
 class CartController extends Controller
 {
@@ -124,7 +125,7 @@ class CartController extends Controller
     // ajax
     public function ajaxAdd(Request $request)
     {
-        $validator = \Validator::make($request->all(), [
+        $validator = Validator::make($request->all(), [
             'product_id' => 'required|exists:products,id',
             'quantity' => 'nullable|integer|min:1',
         ]);
@@ -152,7 +153,7 @@ class CartController extends Controller
 
     public function ajaxUpdate(Request $request)
     {
-        $validator = \Validator::make($request->all(), [
+        $validator = Validator::make($request->all(), [
             'product_id' => 'required|exists:products,id',
             'quantity' => 'required|integer|min:1',
         ]);
@@ -168,7 +169,7 @@ class CartController extends Controller
 
     public function ajaxRemove(Request $request)
     {
-        $validator = \Validator::make($request->all(), [
+        $validator = Validator::make($request->all(), [
             'product_id' => 'required|exists:products,id',
         ]);
 
@@ -323,47 +324,6 @@ class CartController extends Controller
     {
         $count = $this->cart->getCartItems(false)->count();
         return response()->json(['count' => $count]);
-    }
-
-    public function applyCouponbk(Request $request)
-    {
-        $request->validate(['code' => 'required|string']);
-
-        $cart = $this->cart->getCurrentCart();
-
-    
-        if ($cart->applied_coupon_id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You have already applied a coupon. Please remove it before applying another.'
-            ]);
-        }
-
-        $coupon = Coupon::where('code', $request->code)->active()->first();
-        if (!$coupon) {
-            return response()->json(['success' => false, 'message' => 'Invalid or expired coupon.']);
-        }
-
-        $subtotal = $this->cart->getCartItems(false)->sum(fn($i) => $i->quantity * $i->price_at_time);
-        if (!$coupon->isValid($subtotal)) {
-            return response()->json(['success' => false, 'message' => 'This coupon is not valid for your cart total.']);
-        }
-
-        $cart->applied_coupon_id = $coupon->id;
-        $cart->save();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Coupon applied successfully!',
-            'updatedCartHtml' => view('partials._cart_cards', ['items' => $this->cart->getCartItems(false)])->render(),
-            'totalsHtml' => view('partials._cart_totals', [
-                'cart' => $cart->fresh(),
-                'items' => $this->cart->getCartItems(false),
-                'subtotal' => $subtotal,
-                'discount' => $coupon->calculateDiscount($subtotal),
-                'total' => $subtotal - $coupon->calculateDiscount($subtotal),
-            ])->render()
-        ]);
     }
 
     public function applyCoupon(Request $request)
