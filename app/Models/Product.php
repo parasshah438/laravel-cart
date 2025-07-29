@@ -9,6 +9,7 @@ class Product extends Model
     protected $fillable = [
         'name',
         'description',
+        'category_id',
         'price',
         'image',
         'slug', // Ensure slug is fillable for mass assignment
