@@ -40,32 +40,78 @@ class AddressController extends Controller
     /**
      * Store a newly created address
      */
-    public function store(Request $request)
-    {
-        $validated = $this->validateAddress($request);
 
+public function store(Request $request)
+{
+    try {
+        // Validate the request
+        $validated = $this->validateAddress($request);
+        
+        // Log for debugging (remove dd)
+        \Log::info('Address Form Data:', $request->all());
+        
         // Handle default address logic
-        if ($request->has('is_default') && $request->is_default) {
+        if ($request->filled('is_default') && $request->is_default) {
             $this->clearDefaultAddresses();
         }
 
-        if ($request->has('is_default_billing') && $request->is_default_billing) {
+        if ($request->filled('is_default_billing') && $request->is_default_billing) {
             $this->clearDefaultBilling();
         }
 
-        if ($request->has('is_default_shipping') && $request->is_default_shipping) {
+        if ($request->filled('is_default_shipping') && $request->is_default_shipping) {
             $this->clearDefaultShipping();
         }
 
         $validated['user_id'] = Auth::id();
         $address = UserAddress::create($validated);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Address saved successfully!',
-            'address' => $address->load(['country', 'state', 'city'])
+        // Check if it's an AJAX request
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Address saved successfully!',
+                'address' => $address->load(['country', 'state', 'city'])
+            ]);
+        }
+
+        // For regular form submission
+        return redirect()->back()->with('success', 'Address saved successfully!');
+
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        // Handle validation errors
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        }
+
+        // For regular form submission
+        return redirect()->back()
+            ->withErrors($e->errors())
+            ->withInput();
+
+    } catch (\Exception $e) {
+        // Handle other errors
+        \Log::error('Address Save Error:', [
+            'message' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
         ]);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong. Please try again.'
+            ], 500);
+        }
+
+        return redirect()->back()
+            ->with('error', 'Something went wrong. Please try again.')
+            ->withInput();
     }
+}
 
     /**
      * Show the form for editing an address
@@ -99,36 +145,92 @@ class AddressController extends Controller
     /**
      * Update the specified address
      */
-    public function update(Request $request, UserAddress $address)
-    {
-        // Ensure user can only update their own addresses
+   
+
+public function update(Request $request, UserAddress $address)
+{
+    try {
+        // Security check
         if ($address->user_id !== Auth::id()) {
-            abort(403);
+            return response()->json([
+                'success' => false,
+                'message' => 'Access denied'
+            ], 403);
         }
 
+        // Validate the request
         $validated = $this->validateAddress($request, $address->id);
 
-        // Handle default address logic
-        if ($request->has('is_default') && $request->is_default) {
+        $validated['is_default'] = $request->has('is_default') ? (bool)$request->is_default : false;
+        $validated['is_default_billing'] = $request->has('is_default_billing') ? (bool)$request->is_default_billing : false;
+        $validated['is_default_shipping'] = $request->has('is_default_shipping') ? (bool)$request->is_default_shipping : false;
+
+        // Handle default address logic - only if checkbox is checked
+        if ($validated['is_default']) {
             $this->clearDefaultAddresses($address->id);
         }
 
-        if ($request->has('is_default_billing') && $request->is_default_billing) {
+        if ($validated['is_default_billing']) {
             $this->clearDefaultBilling($address->id);
         }
 
-        if ($request->has('is_default_shipping') && $request->is_default_shipping) {
+        if ($validated['is_default_shipping']) {
             $this->clearDefaultShipping($address->id);
         }
 
+        // Update the address
         $address->update($validated);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Address updated successfully!',
-            'address' => $address->load(['country', 'state', 'city'])
+        // Load relationships for response
+        $address->load(['country', 'state', 'city']);
+
+        // Check if it's an AJAX request
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Address updated successfully!',
+                'address' => $address
+            ]);
+        }
+
+        // For regular form submission
+        return redirect()->back()->with('success', 'Address updated successfully!');
+
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        // Handle validation errors
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        }
+
+        return redirect()->back()
+            ->withErrors($e->errors())
+            ->withInput();
+
+    } catch (\Exception $e) {
+        // Log the error
+        \Log::error('Address Update Error:', [
+            'address_id' => $address->id,
+            'user_id' => Auth::id(),
+            'message' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
         ]);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong while updating address'
+            ], 500);
+        }
+
+        return redirect()->back()
+            ->with('error', 'Something went wrong. Please try again.')
+            ->withInput();
     }
+}
 
     /**
      * Remove the specified address
@@ -506,4 +608,79 @@ class AddressController extends Controller
             'count' => $postalCodes->count()
         ]);
     }
+
+
+public function apiShow($id)
+{
+    try {
+        // Validate that ID is numeric
+        if (!is_numeric($id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid address ID'
+            ], 400);
+        }
+
+        $address = UserAddress::with(['country', 'state', 'city'])
+            ->where('user_id', Auth::id())
+            ->where('id', $id)
+            ->first();
+
+        // Check if address exists and belongs to user
+        if (!$address) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Address not found or you do not have permission to access it'
+            ], 404);
+        }
+
+        // Double security check
+        if ($address->user_id !== Auth::id()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Access denied. You do not have permission to view this address.'
+            ], 403);
+        }
+
+        return response()->json([
+            'success' => true,
+            'address' => $address
+        ]);
+
+    } catch (\Exception $e) {
+        \Log::error('Address API Show Error:', [
+            'address_id' => $id,
+            'user_id' => Auth::id(),
+            'message' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Something went wrong while fetching address'
+        ], 500);
+    }
 }
+
+/**
+ * Regular show method for web views
+ */
+public function show(UserAddress $address)
+{
+    // Security check
+    if ($address->user_id !== Auth::id()) {
+        abort(403);
+    }
+
+    // If it's an AJAX request, return JSON
+    if (request()->expectsJson()) {
+        return response()->json([
+            'success' => true,
+            'address' => $address->load(['country', 'state', 'city'])
+        ]);
+    }
+
+    // Return view for regular requests
+    return view('address.show', compact('address'));
+}
+}    

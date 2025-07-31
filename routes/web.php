@@ -57,33 +57,31 @@ Route::get('/cart/saved-items-refresh', [CartController::class, 'refreshSavedIte
 Route::get('/cart/items/refresh', [CartController::class, 'refreshCartView'])->name('cart.items.refresh');
 Route::get('/cart/summary', [CartController::class, 'getCartSummary'])->name('cart.summary');
 
-
 // Checkout Routes
 Route::middleware('auth')->group(function () {
     Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout');
-    Route::post('/checkout/address', [CheckoutController::class, 'saveAddress'])->name('checkout.address.save');
+    Route::post('/checkout/address', [AddressController::class, 'store'])->name('checkout.address.saveed');
+    Route::get('/checkout/payment', [CheckoutController::class, 'payment'])->name('checkout.payment');
+    Route::post('/checkout/address/select', [CheckoutController::class, 'selectAddress'])->name('checkout.address.select');
+    Route::post('/checkout/address/save', [AddressController::class, 'store'])->name('checkout.address.save');
     Route::get('/checkout/payment', [CheckoutController::class, 'payment'])->name('checkout.payment');
 });
-
-Route::middleware(['auth'])->group(function () {
-    Route::resource('address', AddressController::class)->except(['show']);
-    Route::post('address/{id}/default', [AddressController::class, 'setDefault'])->name('address.setDefault');
-});
-
 
 Route::prefix('api')->group(function() {
     Route::get('/postal-code/{code}', [AddressController::class, 'getPostalCodeInfo']);
     Route::get('/states/{country}', [AddressController::class, 'getStates']);
     Route::get('/cities/{state}', [AddressController::class, 'getCities']);
-
-    // Additional helpful endpoints
     Route::post('/validate-postal-code', [AddressController::class, 'validatePostalCode']);
     Route::get('/address-suggestions', [AddressController::class, 'getAddressSuggestions']);
     Route::get('/default-addresses', [AddressController::class, 'getDefaultAddresses']);
     Route::get('/postal-codes/city/{cityId}', [AddressController::class, 'getPostalCodesForCity']);
-
     Route::get('/postal-codes/state/{stateId}', [AddressController::class, 'getPostalCodesForState']);
-
-
+    Route::get('/load-address/{id}', [AddressController::class, 'apiShow']);
 });
+
+Route::middleware(['auth'])->group(function () {
+    Route::resource('address', AddressController::class);
+    Route::post('address/{address}/default', [AddressController::class, 'setDefault'])->name('address.setDefault');
+});
+
 require __DIR__.'/auth.php';

@@ -767,10 +767,143 @@ document.getElementById('postal_code').addEventListener('input', function() {
 document.getElementById('gst_number').addEventListener('input', function() {
     this.value = this.value.toUpperCase().slice(0, 15);
 });
+
+
+
+
+
+// Update your form submission handler
+document.getElementById('address-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const form = this;
+    const formData = new FormData(form);
+    const submitBtn = form.querySelector('button[type="submit"]');
+    
+    // Show loading state
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '⏳ Saving Address...';
+    
+    // Clear previous errors
+    clearFormErrors();
+    
+    fetch(form.action, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showSuccess(data.message);
+            // Redirect to checkout or refresh page
+            setTimeout(() => {
+                window.location.href = '/checkout';
+            }, 1500);
+        } else {
+            showErrors(data.errors || {});
+            showError(data.message || 'Please fix the errors below');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showError('Something went wrong. Please try again.');
+    })
+    .finally(() => {
+        // Reset button
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '📍 Save Address & Continue';
+    });
+});
+
+// Helper functions for error display
+function clearFormErrors() {
+    // Remove existing error messages
+    document.querySelectorAll('.text-danger').forEach(el => {
+        if (el.classList.contains('error-message')) {
+            el.remove();
+        }
+    });
+    
+    // Remove error styling
+    document.querySelectorAll('.is-invalid').forEach(el => {
+        el.classList.remove('is-invalid');
+    });
+}
+
+function showErrors(errors) {
+    Object.keys(errors).forEach(field => {
+        const input = document.querySelector(`[name="${field}"]`);
+        if (input) {
+            // Add error styling
+            input.classList.add('is-invalid');
+            
+            // Add error message
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'text-danger small error-message mt-1';
+            errorDiv.textContent = errors[field][0];
+            
+            // Insert after the input
+            input.parentNode.appendChild(errorDiv);
+        }
+    });
+}
+
+function showError(message) {
+    showToast(message, 'error');
+}
+
+function showSuccess(message) {
+    showToast(message, 'success');
+}
+
+function showToast(message, type = 'info') {
+    // Create toast notification
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type === 'error' ? 'danger' : 'success'} alert-dismissible fade show position-fixed`;
+    toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    toast.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.remove();
+        }
+    }, 5000);
+}
+
+
+
 </script>
 
 {{-- Custom CSS for better UX --}}
+
 <style>
+/* Add to your existing styles */
+.is-invalid {
+    border-color: #dc3545 !important;
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+}
+
+.error-message {
+    display: block;
+    font-size: 0.875rem;
+    color: #dc3545;
+}
+
+.alert {
+    border-radius: 0.375rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
 .form-label {
     font-weight: 600;
     color: #333;
