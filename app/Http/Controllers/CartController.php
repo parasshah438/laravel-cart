@@ -13,6 +13,7 @@ use App\Models\Coupon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Storage;
 
 class CartController extends Controller
 {
@@ -437,5 +438,124 @@ class CartController extends Controller
             'total' => number_format($total, 2),
             'coupon_code' => $cart->appliedCoupon->code ?? null,
         ]);
+    }
+
+
+    public function getGiftProducts(Request $request)
+    {
+        try {
+            // Get gift/complementary products (you can customize this logic)
+            $giftProducts = Product::where('price', '<', 500) // Small price items as gifts
+                ->inRandomOrder()
+                ->limit(12)
+                ->get();
+
+            // If no specific gift products, get random products under ₹300
+            if ($giftProducts->isEmpty()) {
+                $giftProducts = Product::where('price', '<', 300)
+                    ->where('status', 'active')
+                    ->inRandomOrder()
+                    ->limit(12)
+                    ->get();
+            }
+
+            $html = view('partials._gift-products', compact('giftProducts'))->render();
+
+            return response()->json([
+                'success' => true,
+                'html' => $html
+            ]);
+        } catch (\Exception $e) {
+            dd($e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error loading gift products'
+            ], 500);
+        }
+    }
+
+    /**
+     * Add selected gifts to cart
+     */
+    public function addGifts(Request $request)
+    {
+        try {
+            $gifts = $request->input('gifts', []);
+            $addedCount = 0;
+            
+            foreach ($gifts as $gift) {
+                $product = Product::find($gift['product_id']);
+
+                
+                
+                if ($product) {
+                    // Cart::add($product->id, $product->name, $gift['quantity'], $product->price, [
+                    //     'image' => $product->image,
+
+                    // ]);
+
+                    $this->cart->add($product->id, $gift['quantity'] ?? 1);
+                    $addedCount++;
+
+                    
+                }
+            }
+
+            $message = $addedCount === 1 
+                ? "1 gift item added to cart!" 
+                : "{$addedCount} gift items added to cart!";
+
+            return response()->json([
+                'success' => true,
+                'message' => $message,
+                'cart_count' => Cart::count()
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error adding gifts to cart'
+            ], 500);
+        }
+    }
+
+    public function saveCustomizationImage(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'customized_image' => 'required|image|max:5120', // 5MB max
+                'product_id' => 'required|exists:products,id',
+                'customizations' => 'required|json'
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json(['success' => false, 'errors' => $validator->errors()]);
+            }
+
+            // Store image
+            $image = $request->file('customized_image');
+            $filename = 'customized_' . time() . '_' . uniqid() . '.png';
+            $path = $image->storeAs('customizations', $filename, 'public');
+
+            // Save to database (optional)
+            // $customization = new ProductCustomization();
+            // $customization->product_id = $request->product_id;
+            // $customization->user_id = auth()->id();
+            // $customization->session_id = session()->getId();
+            // $customization->image_path = $path;
+            // $customization->customizations_data = $request->customizations;
+            // $customization->save();
+
+            return response()->json([
+                'success' => true,
+                'image_url' => Storage::url($path),
+                'customization_id' => $customization->id
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to save customized image'
+            ], 500);
+        }
     }
 }

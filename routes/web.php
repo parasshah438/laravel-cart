@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\{ProfileController, CartController, WishlistController, FrontendController, ProductController, CheckoutController, AddressController};
+use App\Http\Controllers\{ProfileController, CartController, WishlistController, FrontendController, ProductController, CheckoutController, AddressController, CategoryController};
 
 
 Route::get('/', [FrontendController::class, 'index'])->name('front.index');
@@ -33,7 +33,6 @@ Route::middleware('auth')->group(function () {
 
 Route::post('/cart/save-for-later', [CartController::class, 'saveForLater'])->name('cart.saveForLater');
 Route::post('/cart/move-to-cart', [CartController::class, 'moveToCartFromSaved'])->name('cart.moveToCartFromSaved');
-
 Route::post('/cart/apply-coupon', [CartController::class, 'applyCoupon'])->name('cart.applyCoupon');
 Route::post('/cart/remove-coupon', [CartController::class, 'removeCoupon'])->name('cart.removeCoupon');
 
@@ -56,6 +55,11 @@ Route::get('/cart/count', [CartController::class, 'getCartCount'])->name('cart.c
 Route::get('/cart/saved-items-refresh', [CartController::class, 'refreshSavedItemsView'])->name('cart.savedItems.refresh');
 Route::get('/cart/items/refresh', [CartController::class, 'refreshCartView'])->name('cart.items.refresh');
 Route::get('/cart/summary', [CartController::class, 'getCartSummary'])->name('cart.summary');
+
+Route::get('/cart/gift-products', [CartController::class, 'getGiftProducts'])->name('cart.giftProducts');
+Route::post('/cart/add-gifts', [CartController::class, 'addGifts'])->name('cart.addGifts');
+Route::post('/customization/save-image', [CartController::class, 'saveCustomizationImage'])->name('customization.saveImage');
+
 
 // Checkout Routes
 Route::middleware('auth')->group(function () {
@@ -83,5 +87,4 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('address', AddressController::class);
     Route::post('address/{address}/default', [AddressController::class, 'setDefault'])->name('address.setDefault');
 });
-
 require __DIR__.'/auth.php';
