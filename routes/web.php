@@ -5,6 +5,8 @@ use App\Http\Controllers\{ProfileController, CartController, WishlistController,
 
 
 Route::get('/', [FrontendController::class, 'index'])->name('front.index');
+Route::get('/category/{slug}', [FrontendController::class, 'categoryProducts'])->name('category.products');
+Route::get('/search-suggestions', [FrontendController::class, 'searchSuggestions'])->name('search.suggestions');
 Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');

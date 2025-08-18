@@ -18,11 +18,10 @@ class WorldDataSeeder extends Seeder
      */
     public function run(): void
     {
-        //$this->seedCountries();
-        //$this->seedStates();
-        //$this->seedCities();
+        $this->seedCountries();
+        $this->seedStates();
+        $this->seedCities();
         $this->seedPostalCodes();
-
     }
 
     private function seedCountries()
@@ -70,19 +69,20 @@ class WorldDataSeeder extends Seeder
             $states = $response->json();
             
             foreach ($states as $state) {
+
                 $country = Country::where('code', $state['country_code'])->first();
                 
                 if ($country) {
                     // Generate unique code for states without state_code
                     //$stateCode = $state['state_code'] ?? $this->generateStateCode($state['name'], $country->id);
-                    
+                    //dd($state);
                     State::updateOrCreate(
                         [
                             'name' => $state['name'],
                             'country_id' => $country->id,
                         ],
                         [
-                            'code' => $state['state_code'], // ✅ Now always has a value
+                            'code' => $state['country_code'], // ✅ Now always has a value
                             'is_active' => true,
                             'sort_order' => 0,
                         ]

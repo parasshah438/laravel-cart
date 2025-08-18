@@ -7,12 +7,15 @@ use Illuminate\Database\Eloquent\Model;
 class Slider extends Model
 {
     protected $fillable = [
-        'image_path',
-        'link',
+        'title',
+        'subtitle',
+        'image',
         'button_text',
-        'description',
-        'sort_order',
+        'button_link',
+        'bg_color',
+        'bg_color_secondary',
         'is_active',
+        'sort_order'
     ];
 
     /**

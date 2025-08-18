@@ -11,6 +11,8 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         //User::factory(10)->create();
+        //faster seed php -d memory_limit=-1 artisan db:seed
+        //php -d memory_limit=1G artisan db:seed --class=WorldDataSeeder 
 
         //Clear existing users
         User::truncate();
@@ -26,7 +28,10 @@ class DatabaseSeeder extends Seeder
         ]);
 
         //PRODUCTION SEEDER
-        $this->call(ProductSeeder::class);
-        $this->call(CouponSeeder::class);
+        //$this->call(ProductSeeder::class);
+        //$this->call(CategorySeeder::class);
+        //$this->call(CouponSeeder::class);
+        $this->call(WorldDataSeeder::class);
+        //$this->call(SliderSeeder::class);
     }
 }
