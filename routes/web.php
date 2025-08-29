@@ -11,11 +11,6 @@ Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
-Route::middleware('auth')->group(function () {
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-});
 // Product routes
 Route::get('/product/{slug}', [ProductController::class, 'showProduct'])->name('product.show');
 Route::get('/recently-viewed', [ProductController::class, 'getRecentlyViewedProducts'])->name('product.recentlyViewed');
@@ -23,15 +18,6 @@ Route::post('/recently-viewed/clear', [ProductController::class, 'clearRecentlyV
 //trendingProducts
 Route::get('/trending-products', [ProductController::class, 'getTrendingProducts'])->name('product.trending');
 
-//wishlist
-Route::middleware('auth')->group(function () {
-    Route::get('/wishlist', [WishlistController::class, 'index'])->name('wishlist.index');
-    Route::post('/wishlist/toggle', [WishlistController::class, 'toggle'])->name('wishlist.toggle');
-    Route::post('/wishlist/move-to-cart', [WishlistController::class, 'moveToCart'])->name('wishlist.moveToCart');
-    Route::post('/wishlist/move-all-to-cart', [WishlistController::class, 'moveAllToCart'])->name('wishlist.moveAllToCart');
-    Route::delete('/wishlist/clear', [WishlistController::class, 'clear'])->name('wishlist.clear');
-    Route::post('/cart/move-to-wishlist', [CartController::class, 'moveToWishlist'])->name('cart.moveToWishlist');
-});
 
 Route::post('/cart/save-for-later', [CartController::class, 'saveForLater'])->name('cart.saveForLater');
 Route::post('/cart/move-to-cart', [CartController::class, 'moveToCartFromSaved'])->name('cart.moveToCartFromSaved');
@@ -62,17 +48,6 @@ Route::get('/cart/gift-products', [CartController::class, 'getGiftProducts'])->n
 Route::post('/cart/add-gifts', [CartController::class, 'addGifts'])->name('cart.addGifts');
 Route::post('/customization/save-image', [CartController::class, 'saveCustomizationImage'])->name('customization.saveImage');
 
-
-// Checkout Routes
-Route::middleware('auth')->group(function () {
-    Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout');
-    Route::post('/checkout/address', [AddressController::class, 'store'])->name('checkout.address.saveed');
-    Route::get('/checkout/payment', [CheckoutController::class, 'payment'])->name('checkout.payment');
-    Route::post('/checkout/address/select', [CheckoutController::class, 'selectAddress'])->name('checkout.address.select');
-    Route::post('/checkout/address/save', [AddressController::class, 'store'])->name('checkout.address.save');
-    Route::get('/checkout/payment', [CheckoutController::class, 'payment'])->name('checkout.payment');
-});
-
 Route::prefix('api')->group(function() {
     Route::get('/postal-code/{code}', [AddressController::class, 'getPostalCodeInfo']);
     Route::get('/states/{country}', [AddressController::class, 'getStates']);
@@ -86,7 +61,39 @@ Route::prefix('api')->group(function() {
 });
 
 Route::middleware(['auth'])->group(function () {
+    // Order Details page
+    Route::get('/order/{order}', [\App\Http\Controllers\CheckoutController::class, 'orderDetails'])->name('order.details');
+
+    //Profile
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    //wishlist
+    Route::get('/wishlist', [WishlistController::class, 'index'])->name('wishlist.index');
+    Route::post('/wishlist/toggle', [WishlistController::class, 'toggle'])->name('wishlist.toggle');
+    Route::post('/wishlist/move-to-cart', [WishlistController::class, 'moveToCart'])->name('wishlist.moveToCart');
+    Route::post('/wishlist/move-all-to-cart', [WishlistController::class, 'moveAllToCart'])->name('wishlist.moveAllToCart');
+    Route::delete('/wishlist/clear', [WishlistController::class, 'clear'])->name('wishlist.clear');
+    Route::post('/cart/move-to-wishlist', [CartController::class, 'moveToWishlist'])->name('cart.moveToWishlist');
+
+    //Address
     Route::resource('address', AddressController::class);
     Route::post('address/{address}/default', [AddressController::class, 'setDefault'])->name('address.setDefault');
+
+    //checkout
+    Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout');
+    Route::post('/checkout/address', [AddressController::class, 'store'])->name('checkout.address.saveed');
+    Route::get('/checkout/payment', [CheckoutController::class, 'payment'])->name('checkout.payment');
+    Route::post('/checkout/address/select', [CheckoutController::class, 'selectAddress'])->name('checkout.address.select');
+    Route::post('/checkout/address/save', [AddressController::class, 'store'])->name('checkout.address.save');
+    Route::get('/checkout/payment', [CheckoutController::class, 'payment'])->name('checkout.payment');
+
+        // Place Order
+        Route::post('/checkout/place-order', [CheckoutController::class, 'placeOrder'])->name('checkout.placeOrder');
+        // Thank You page
+        Route::get('/checkout/thank-you', function() {
+            return view('checkout.thankyou');
+        })->name('checkout.thankyou');
 });
 require __DIR__.'/auth.php';

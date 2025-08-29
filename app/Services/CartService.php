@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+
 use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\Product;
@@ -142,5 +143,17 @@ class CartService
             return "Sorry, only {$stock->qty} item" . ($stock->qty > 1 ? 's' : '') . " left in stock.";
         }
         return true;
+    }
+
+    /**
+     * Clear all items from the current user's cart (only for logged-in users)
+     */
+    public function clear()
+    {
+        if (!Auth::check()) {
+            return;
+        }
+        $cart = $this->getOrCreateCart();
+        $cart->items()->delete();
     }
 }

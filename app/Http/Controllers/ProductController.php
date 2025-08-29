@@ -2,121 +2,157 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cookie;
-use Illuminate\Support\Facades\Session;
 use App\Models\Product;
-use App\Models\RecentlyViewedProduct;
-use App\Services\RecentlyViewedService;
-use Illuminate\Support\Str;
-use App\Models\Wishlist;
-use App\Models\Cart;
-use App\Models\CartItem;
+use App\Models\Category;
+use Illuminate\Http\Request;
+use App\Http\Controllers\Traits\SEOTrait;
 
 class ProductController extends Controller
 {
-    public function showProduct($slug)
+    use SEOTrait;
+
+    public function __construct()
     {
-        $product = Product::where('slug', $slug)->firstOrFail();
+        $this->initializeSEO();
+    }
 
-        // Record the product as recently viewed
-        $sessionId = session()->get('cart_session_id');
-        if (!$sessionId) {
-            $sessionId = Str::uuid();
-            session()->put('cart_session_id', $sessionId);
+    /**
+     * Display product listing
+     */
+    public function index(Request $request)
+    {
+        $products = Product::with(['category', 'reviews'])
+            ->where('status', 'active')
+            ->when($request->search, function ($query, $search) {
+                return $query->where('name', 'LIKE', "%{$search}%")
+                            ->orWhere('description', 'LIKE', "%{$search}%");
+            })
+            ->when($request->category, function ($query, $category) {
+                return $query->whereHas('category', function ($q) use ($category) {
+                    $q->where('slug', $category);
+                });
+            })
+            ->paginate(12);
+
+        // Set SEO data
+        $this->setSEO('products', [
+            'search' => $request->search,
+            'category' => $request->category
+        ]);
+
+        // Set breadcrumbs
+        $breadcrumbs = [
+            ['name' => 'Home', 'url' => route('front.index')],
+            ['name' => 'Products', 'url' => route('products.index')]
+        ];
+
+        if ($request->category) {
+            $category = Category::where('slug', $request->category)->first();
+            if ($category) {
+                $breadcrumbs[] = [
+                    'name' => $category->name,
+                    'url' => route('categories.show', $category->slug)
+                ];
+            }
         }
 
-        $query = RecentlyViewedProduct::where('product_id', $product->id);
+        $this->setSEO('products', [], $breadcrumbs);
 
-        if (auth()->check()) {
-            $query->where('user_id', auth()->id());
-        } else {
-            $query->where('session_id', $sessionId);
-        }
+        return view('products.index', compact('products'));
+    }
 
-        $existing = $query->first();
+    /**
+     * Display single product
+     */
+    public function show($slug)
+    {
+        $product = Product::with(['category', 'reviews.user', 'images'])
+            ->where('slug', $slug)
+            ->where('status', 'active')
+            ->firstOrFail();
 
-        if ($existing) {
-            $existing->touch(); // update `updated_at`
-        } else {
-            RecentlyViewedProduct::create([
-                'product_id' => $product->id,
-                'user_id' => auth()->id(),
-                'session_id' => auth()->check() ? null : $sessionId,
-            ]);
-        }
+        // Track recently viewed
+        $this->trackRecentlyViewed($product);
 
-        $wishlistProductIds = auth()->check()
-            ? auth()->user()->wishlist()->pluck('product_id')
-            : collect();
+        // Set SEO data
+        $breadcrumbs = $this->generateProductBreadcrumbs($product);
+        $this->setSEO('product', $product, $breadcrumbs);
 
-        $similarProducts = Product::where('id', '!=', $product->id)
-            ->inRandomOrder()
-            ->take(10)
+        // Add structured data
+        $structuredData = $this->addProductStructuredData($product);
+        view()->share('productSchema', json_encode($structuredData, JSON_UNESCAPED_SLASHES));
+
+        // Related products
+        $relatedProducts = Product::where('category_id', $product->category_id)
+            ->where('id', '!=', $product->id)
+            ->where('status', 'active')
+            ->take(4)
             ->get();
 
+        // Set cache headers for product pages
+        $this->setCacheHeaders(30); // 30 minutes
 
-        return view('products.show', compact('product', 'similarProducts', 'wishlistProductIds'));
+        return view('products.show', compact('product', 'relatedProducts'));
     }
 
-public function getRecentlyViewedProducts()
-{
-
-    $query = RecentlyViewedProduct::with('product')
-        ->orderByDesc('updated_at')
-        ->limit(10);
-
-    if (auth()->check()) {
-        $query->where('user_id', auth()->id());
-    } else {
-        $sessionId = session()->get('cart_session_id');
-        if (!$sessionId) {
-            // Return early with empty collection if no session ID
-            return view('products.recently-viewed', ['recentlyViewed' => collect()]);
-        }
-        $query->where('session_id', $sessionId);
-    }
-
-
-    $recentlyViewed = $query->get()->pluck('product')->filter();
-    
-    dd($recentlyViewed);
-    return view('products.recently-viewed', compact('recentlyViewed'));
-}
-
-    public function clearRecentlyViewed()
+    /**
+     * Search products
+     */
+    public function search(Request $request)
     {
-        $sessionId = Session::getId();
-
-        $query = RecentlyViewedProduct::where('user_id', auth()->id());
-
-        if (!auth()->check()) {
-            $query->where('session_id', $sessionId);
+        $query = $request->get('q');
+        
+        if (empty($query)) {
+            return redirect()->route('products.index');
         }
 
-        $deletedCount = $query->delete();
+        $products = Product::with(['category', 'reviews'])
+            ->where('status', 'active')
+            ->where(function ($q) use ($query) {
+                $q->where('name', 'LIKE', "%{$query}%")
+                  ->orWhere('description', 'LIKE', "%{$query}%")
+                  ->orWhere('sku', 'LIKE', "%{$query}%")
+                  ->orWhereHas('category', function ($categoryQuery) use ($query) {
+                      $categoryQuery->where('name', 'LIKE', "%{$query}%");
+                  });
+            })
+            ->paginate(12);
 
-        if ($deletedCount > 0) {
-            Session::flash('success', 'Recently viewed products cleared successfully.');
-        } else {
-            Session::flash('info', 'No recently viewed products to clear.');
-        }
+        // Set SEO data for search results
+        $this->setSEO('search', ['query' => $query]);
 
-        return redirect()->route('product.recentlyViewed');
+        // Set breadcrumbs
+        $breadcrumbs = [
+            ['name' => 'Home', 'url' => route('front.index')],
+            ['name' => 'Search Results', 'url' => route('products.search', ['q' => $query])]
+        ];
+
+        $this->setSEO('search', ['query' => $query], $breadcrumbs);
+
+        // Set robots tag for search pages
+        $this->setRobotsTag(false, true, ['noarchive']);
+
+        return view('products.search', compact('products', 'query'));
     }
 
-    public function getTrendingProducts()
+    /**
+     * Track recently viewed products
+     */
+    private function trackRecentlyViewed($product)
     {
-        $trendingProducts = Product::withCount([
-            'views as recent_views_count' => function ($query) {
-                $query->where('created_at', '>=', now()->subDays(7));
-            },
-            'wishlists as wishlists_count'
-        ])
-        ->havingRaw('(recent_views_count * 2 + wishlists_count) > 0')
-        ->orderByRaw('(recent_views_count * 2 + wishlists_count) DESC')
-        ->get();
-
-        return view('products.trending', compact('trendingProducts'));
+        $recentlyViewed = session()->get('recently_viewed', []);
+        
+        // Remove if already exists
+        $recentlyViewed = array_filter($recentlyViewed, function ($id) use ($product) {
+            return $id != $product->id;
+        });
+        
+        // Add to beginning
+        array_unshift($recentlyViewed, $product->id);
+        
+        // Keep only last 10
+        $recentlyViewed = array_slice($recentlyViewed, 0, 10);
+        
+        session()->put('recently_viewed', $recentlyViewed);
     }
 }

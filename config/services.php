@@ -35,4 +35,12 @@ return [
         ],
     ],
 
+    'google_analytics' => [
+        'tracking_id' => env('GOOGLE_ANALYTICS_TRACKING_ID'),
+    ],
+
+    'google_search_console' => [
+        'verification' => env('GOOGLE_SEARCH_CONSOLE_VERIFICATION'),
+    ],
+
 ];

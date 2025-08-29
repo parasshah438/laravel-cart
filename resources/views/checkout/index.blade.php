@@ -242,6 +242,24 @@
                                 </div>
                             </div>
                         </div>
+                            <!-- Payment Options and Place Order Form -->
+                            <form method="POST" action="{{ route('checkout.placeOrder') }}" class="mt-4">
+                                @csrf
+                                <div class="card mb-3">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">💳 Payment Options</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="payment_method" id="cod" value="cod" checked>
+                                            <label class="form-check-label fw-bold" for="cod">
+                                                Cash on Delivery (COD)
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-success btn-lg w-100">Place Order</button>
+                            </form>
                     </div>
                 </div>
                 @endif

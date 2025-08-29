@@ -44,4 +44,65 @@ class CheckoutController extends Controller
         // Logic to display order summary
         return view('checkout.summary');
     }
+
+        /**
+         * Place order (COD only)
+         */
+        public function placeOrder(Request $request)
+        {
+            $user = auth()->user();
+            $cartItems = $this->cart->getCartItems();
+            if ($cartItems->isEmpty()) {
+                return redirect()->route('cart.view')->with('error', 'Your cart is empty.');
+            }
+
+            // Get selected address (default or selected)
+            $address = $user->addresses()->where('is_default', true)->first();
+            if (!$address) {
+                return redirect()->route('checkout')->with('error', 'Please select a delivery address.');
+            }
+
+            // Calculate totals
+            $total = $cartItems->sum(function($item) { return $item->product->price * $item->quantity; });
+            $discount = 0; // Add coupon logic if needed
+            $grandTotal = $total - $discount;
+
+            // Create order
+            $order = $user->orders()->create([
+                'address_id' => $address->id,
+                'order_number' => 'ORD' . strtoupper(uniqid()),
+                'total' => $total,
+                'discount' => $discount,
+                'grand_total' => $grandTotal,
+                'status' => 'pending',
+                'payment_method' => 'cod',
+                'payment_status' => 'pending',
+                'notes' => null,
+            ]);
+
+            // Create order items
+            foreach ($cartItems as $item) {
+                $order->items()->create([
+                    'product_id' => $item->product->id,
+                    'product_name' => $item->product->name,
+                    'price' => $item->product->price,
+                    'quantity' => $item->quantity,
+                    'total' => $item->product->price * $item->quantity,
+                ]);
+            }
+
+            // Clear cart
+            $this->cart->clear();
+
+            return redirect()->route('checkout.thankyou');
+        }
+
+        /**
+     * Show the details for a specific order (only for the order owner)
+     */
+    public function orderDetails($orderId)
+    {
+        $order = auth()->user()->orders()->with('items.product')->findOrFail($orderId);
+        return view('checkout.order-details', compact('order'));
+    }    
 }
