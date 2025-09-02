@@ -4,8 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Models\Category;
+use App\Models\Wishlist;
+use App\Models\Cart;
+use App\Models\CartItem;
 use Illuminate\Http\Request;
+use App\Models\RecentlyViewedProduct;
 use App\Http\Controllers\Traits\SEOTrait;
+use Session;
+use Illuminate\Support\Str;
 
 class ProductController extends Controller
 {
@@ -154,5 +160,122 @@ class ProductController extends Controller
         $recentlyViewed = array_slice($recentlyViewed, 0, 10);
         
         session()->put('recently_viewed', $recentlyViewed);
+    }
+
+    public function trending()
+    {
+        $trendingProducts = Product::withCount(['views' => function ($query) {
+            $query->where('created_at', '>=', now()->subDays(7)); // last 7 days
+        }])
+        ->orderByDesc('views_count')
+        ->limit(10)
+        ->get();
+
+        return view('products.trending', compact('trendingProducts'));
+    }
+
+    public function getRecentlyViewedProducts()
+    {
+        $query = RecentlyViewedProduct::with('product')
+            ->orderByDesc('updated_at')
+            ->limit(10);
+
+        if (auth()->check()) {
+            $query->where('user_id', auth()->id());
+        } else {
+            $query->where('session_id', Session::getId());
+        }
+
+        $recentlyViewed = $query->get()->pluck('product');
+
+        return view('products.recently-viewed', compact('recentlyViewed'));
+    }
+
+   public function recommendedProducts()
+    {
+        $sessionId = session()->get('cart_session_id');
+        $userId = auth()->id();
+
+        // 1. Get viewed products
+        $viewedProductIds = RecentlyViewedProduct::query()
+            ->when($userId, fn($q) => $q->where('user_id', $userId))
+            ->when(!$userId, fn($q) => $q->where('session_id', $sessionId))
+            ->orderByDesc('updated_at')
+            ->pluck('product_id')
+            ->toArray();
+
+        // 2. Get cart items
+        $cartIds = Cart::query()
+            ->when($userId, fn($q) => $q->where('user_id', $userId))
+            ->when(!$userId, fn($q) => $q->where('session_id', $sessionId))
+            ->pluck('id');
+
+        $cartProductIds = CartItem::whereIn('cart_id', $cartIds)
+            ->pluck('product_id')
+            ->toArray();
+
+        // 3. Wishlist items
+        $wishlistProductIds = $userId
+            ? Wishlist::where('user_id', $userId)->pluck('product_id')->toArray()
+            : [];
+
+        // 4. Merge all and remove duplicates
+        $allProductIds = array_unique(array_merge($viewedProductIds, $cartProductIds, $wishlistProductIds));
+
+        // 5. Recommended logic — same category, not already viewed
+        $recommendedProducts = Product::whereIn('category_id', function ($query) use ($allProductIds) {
+                $query->select('category_id')
+                    ->from('products')
+                    ->whereIn('id', $allProductIds);
+            })
+            ->whereNotIn('id', $allProductIds)
+            ->inRandomOrder()
+            ->take(10)
+            ->get();
+
+        return view('products.recommended', compact('recommendedProducts'));
+    }
+
+    public function showProduct($slug)
+    {
+        $product = Product::where('slug', $slug)->firstOrFail();
+
+        // Record the product as recently viewed
+        $sessionId = session()->get('cart_session_id');
+        if (!$sessionId) {
+            $sessionId = Str::uuid();
+            session()->put('cart_session_id', $sessionId);
+        }
+
+        $query = RecentlyViewedProduct::where('product_id', $product->id);
+
+        if (auth()->check()) {
+            $query->where('user_id', auth()->id());
+        } else {
+            $query->where('session_id', $sessionId);
+        }
+
+        $existing = $query->first();
+
+        if ($existing) {
+            $existing->touch();
+        } else {
+            RecentlyViewedProduct::create([
+                'product_id' => $product->id,
+                'user_id' => auth()->id(),
+                'session_id' => auth()->check() ? null : $sessionId,
+            ]);
+        }
+
+        $wishlistProductIds = auth()->check()
+            ? auth()->user()->wishlist()->pluck('product_id')
+            : collect();
+
+        $similarProducts = Product::where('id', '!=', $product->id)
+            ->inRandomOrder()
+            ->take(10)
+            ->get();
+            
+        return view('products.show', compact('product','wishlistProductIds','similarProducts'));
     }
 }

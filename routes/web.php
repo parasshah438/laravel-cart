@@ -16,7 +16,8 @@ Route::get('/product/{slug}', [ProductController::class, 'showProduct'])->name('
 Route::get('/recently-viewed', [ProductController::class, 'getRecentlyViewedProducts'])->name('product.recentlyViewed');
 Route::post('/recently-viewed/clear', [ProductController::class, 'clearRecentlyViewed'])->name('recently-viewed.clear')->middleware('auth');
 //trendingProducts
-Route::get('/trending-products', [ProductController::class, 'getTrendingProducts'])->name('product.trending');
+Route::get('/trending-products', [ProductController::class, 'trending'])->name('product.trending');
+Route::get('/recommendations', [ProductController::class, 'recommendedProducts'])->name('products.recommended');
 
 
 Route::post('/cart/save-for-later', [CartController::class, 'saveForLater'])->name('cart.saveForLater');

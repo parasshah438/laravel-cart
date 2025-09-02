@@ -193,6 +193,42 @@
             font-size: 14px;
         }
         
+        /* Custom Pagination Styles */
+        .pagination {
+            margin: 0;
+        }
+        
+        .pagination .page-link {
+            color: #6c757d;
+            border-color: #dee2e6;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.875rem;
+            line-height: 1.25;
+        }
+        
+        .pagination .page-item.active .page-link {
+            background-color: #007bff;
+            border-color: #007bff;
+            color: white;
+        }
+        
+        .pagination .page-link:hover {
+            color: #0056b3;
+            background-color: #e9ecef;
+            border-color: #dee2e6;
+        }
+        
+        .pagination .page-item.disabled .page-link {
+            color: #6c757d;
+            background-color: #fff;
+            border-color: #dee2e6;
+        }
+        
+        .pagination-sm .page-link {
+            padding: 0.375rem 0.5rem;
+            font-size: 0.875rem;
+        }
+        
         @media (max-width: 768px) {
             .category-hero {
                 padding: 40px 0;
@@ -456,8 +492,8 @@
 
                         <!-- Pagination -->
                         @if($products->hasPages())
-                        <div class="d-flex justify-content-center">
-                            {{ $products->links() }}
+                        <div class="d-flex justify-content-center mt-4">
+                            {{ $products->links('pagination.bootstrap-5') }}
                         </div>
                         @endif
                     @else
