@@ -1,48 +1,41 @@
 @foreach($products as $product)
 @php $stock = $product->stocks->first(); @endphp
-<div class="col-lg-3 col-md-4 col-sm-6">
-    <div class="product-card">
-        <div class="product-image">
-            <a href="{{ route('product.show', $product->slug) }}">
-                <img src="{{ $product->image ?: 'https://via.placeholder.com/300x250/f8f9fa/6c757d?text=No+Image' }}" 
-                     alt="{{ $product->name }}">
-            </a>
-            <button class="wishlist-btn {{ auth()->guest() ? 'guest-wishlist' : 'wishlist-toggle' }}"
-                    data-product-id="{{ $product->id }}">
-                <span class="wishlist-icon">
-                    {{ auth()->check() && $wishlistProductIds->contains($product->id) ? '❤️' : '🤍' }}
-                </span>
-            </button>
-        </div>
-        <div class="product-info">
-            <div class="product-brand">{{ $product->category->name ?? 'ShopCart' }}</div>
-            <h6 class="product-name">
-                <a href="{{ route('product.show', $product->slug) }}" class="text-decoration-none text-dark">
-                    {{ $product->name }}
-                </a>
-            </h6>
-            <div class="product-price">
-                <span class="current-price">₹{{ number_format($product->price) }}</span>
-                @if($product->original_price && $product->original_price > $product->price)
-                <span class="original-price">₹{{ number_format($product->original_price) }}</span>
-                <span class="discount">
-                    {{ round((($product->original_price - $product->price) / $product->original_price) * 100) }}% OFF
-                </span>
-                @endif
-            </div>
-            
-            @if($stock?->isOutOfStock())
-            <button class="add-to-cart-btn" disabled>Out of Stock</button>
-            @else
-            <form class="add-to-cart-form" data-product-id="{{ $product->id }}">
+<div class="col-12 col-sm-6 col-md-4 col-lg-3">
+    <div class="card h-100 shadow-sm position-relative">
+        <button class="btn btn-sm position-absolute top-0 end-0 m-2 {{ auth()->guest() ? 'guest-wishlist' : 'wishlist-toggle' }}"
+            data-product-id="{{ $product->id }}"
+            style="background-color: white; border: none; z-index: 10;"
+            title="Toggle Wishlist">
+            <span class="wishlist-icon">
+                {{ auth()->check() && $wishlistProductIds->contains($product->id) ? '❤️' : '🤍' }}
+            </span>
+        </button>
+        <a href="{{ route('product.show', $product->slug) }}" class="text-decoration-none text-dark">
+            <img src="{{ $product->image }}" class="card-img-top" alt="{{ $product->name }}" style="height: 180px; object-fit: cover;">
+        </a>
+        <div class="card-body d-flex flex-column">
+            <h5 class="card-title">
+                <a href="{{ route('product.show', $product->slug) }}" class="text-decoration-none text-dark">{{ $product->name }}</a>
+            </h5>
+            <p class="card-text text-muted mb-2">₹{{ $product->price }}</p>
+            <form method="POST" action="{{ route('cart.ajaxAdd') }}" class="mt-auto add-to-cart-form">
                 @csrf
                 <input type="hidden" name="product_id" value="{{ $product->id }}">
-                <input type="hidden" name="quantity" value="1">
-                <button type="submit" class="add-to-cart-btn">
-                    Add to Bag
-                </button>
+                @if($stock && $stock->isInStock())
+                <div class="input-group mb-2">
+                    <input type="number" name="quantity" value="1" min="1" class="form-control" style="max-width: 80px;">
+                </div>
+                @endif
+                @if($stock?->isOutOfStock())
+                <button class="btn btn-secondary w-100" disabled>Out of Stock</button>
+                @elseif($stock?->isLowStock())
+                <div class="text-danger small">Only {{ $stock->qty }} left in stock!</div>
+                <button type="submit" class="btn btn-primary w-100">Add to Cart</button>
+                @else
+                <div class="text-success small">In Stock</div>
+                <button type="submit" class="btn btn-primary w-100">Add to Cart</button>
+                @endif
             </form>
-            @endif
         </div>
     </div>
 </div>

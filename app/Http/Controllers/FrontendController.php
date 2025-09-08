@@ -6,9 +6,18 @@ use Illuminate\Http\Request;
 use App\Models\Product;
 use App\Models\Slider;
 use App\Models\Category;
+use App\Services\CartService;
+use App\Models\Cart;
 
 class FrontendController extends Controller
 {
+    protected $cart;
+
+    public function __construct(CartService $cart)
+    {
+        $this->cart = $cart;
+    }
+    
     public function index(Request $request)
     {
         $perPage = 12;
@@ -64,8 +73,10 @@ class FrontendController extends Controller
                 'hasMorePages' => $products->hasMorePages()
             ]);
         }
-        
-        return view('welcome', compact('products', 'wishlistProductIds', 'sliders', 'searchQuery', 'categories', 'categorySlug'));
+
+        $cartCount = $this->cart->getCartItems(false)->count();
+
+        return view('welcome', compact('products', 'wishlistProductIds', 'sliders', 'searchQuery', 'categories', 'categorySlug', 'cartCount'));
     }
 
     /**
