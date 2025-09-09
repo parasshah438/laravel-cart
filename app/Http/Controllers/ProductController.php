@@ -275,7 +275,16 @@ class ProductController extends Controller
             ->inRandomOrder()
             ->take(10)
             ->get();
+        
+        // Check if product is in cart (for displaying quantity controls)
+        $cartItem = null;
+        if (auth()->check()) {
+            $cart = auth()->user()->cart;
+            if ($cart) {
+                $cartItem = $cart->items()->where('product_id', $product->id)->first();
+            }
+        }
             
-        return view('products.show', compact('product','wishlistProductIds','similarProducts'));
+        return view('products.show', compact('product','wishlistProductIds','similarProducts','cartItem'));
     }
 }
