@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <!-- Glide.js CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@glidejs/glide@3.6.0/dist/css/glide.core.min.css">
     <!-- Glide.js Theme (Optional) -->
@@ -204,41 +205,66 @@
                             </div>
                         </div>
                         
-                        {{-- Order Summary --}}
+                        {{-- ✅ PROFESSIONAL ORDER SUMMARY (With Applied Coupons) --}}
                         <div class="card">
                             <div class="card-header">
-                                <h6 class="mb-0">🛒 Your Order</h6>
+                                <h6 class="mb-0">🛒 Your Order ({{ $cartItems->count() }} items)</h6>
                             </div>
                             <div class="card-body">
-                                @php $subtotal = 0; @endphp
+                                {{-- Cart Items --}}
                                 @foreach($cartItems as $item)
-                                    @php $lineTotal = $item->product->price * $item->quantity; @endphp
+                                    @php $lineTotal = $item->price_at_time * $item->quantity; @endphp
                                     <div class="d-flex justify-content-between align-items-center border-bottom py-2">
-                                        <div>
+                                        <div class="flex-grow-1">
                                             <strong>{{ $item->product->name }}</strong><br>
-                                            <small class="text-muted">Qty: {{ $item->quantity }}</small>
+                                            <small class="text-muted">
+                                                ₹{{ number_format($item->price_at_time, 2) }} × {{ $item->quantity }}
+                                            </small>
                                         </div>
                                         <div class="text-end">
                                             <span class="fw-bold">₹{{ number_format($lineTotal, 2) }}</span>
                                         </div>
                                     </div>
-                                    @php $subtotal += $lineTotal; @endphp
                                 @endforeach
 
+                                {{-- Price Breakdown --}}
                                 <div class="border-top pt-3 mt-3">
                                     <div class="d-flex justify-content-between mb-2">
                                         <span>Subtotal</span>
                                         <span>₹{{ number_format($subtotal, 2) }}</span>
                                     </div>
+                                    
+                                    {{-- ✅ APPLIED COUPON DISPLAY --}}
+                                    @if($appliedCoupon && $discount > 0)
+                                    <div class="d-flex justify-content-between mb-2 text-success">
+                                        <span>
+                                            <i class="fas fa-tags me-1"></i>Coupon Applied 
+                                            <strong>({{ $appliedCoupon->code }})</strong>
+                                            <br><small class="text-muted">{{ $appliedCoupon->title }}</small>
+                                        </span>
+                                        <span class="fw-bold">-₹{{ number_format($discount, 2) }}</span>
+                                    </div>
+                                    @endif
+                                    
                                     <div class="d-flex justify-content-between mb-2">
                                         <span>Shipping</span>
                                         <span class="text-success">FREE</span>
                                     </div>
+                                    
                                     <hr>
                                     <div class="d-flex justify-content-between fw-bold h5">
-                                        <span>Total</span>
-                                        <span class="text-primary">₹{{ number_format($subtotal, 2) }}</span>
+                                        <span>Total Amount</span>
+                                        <span class="text-primary">₹{{ number_format($total, 2) }}</span>
                                     </div>
+                                    
+                                    {{-- Savings Display --}}
+                                    @if($appliedCoupon && $discount > 0)
+                                    <div class="text-center">
+                                        <small class="badge bg-success">
+                                            <i class="fas fa-piggy-bank me-1"></i>You saved ₹{{ number_format($discount, 2) }}!
+                                        </small>
+                                    </div>
+                                    @endif
                                 </div>
                             </div>
                         </div>

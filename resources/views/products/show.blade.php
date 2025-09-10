@@ -248,9 +248,21 @@
 
                 {{-- Other Buttons --}}
                 <div class="d-grid gap-2">
-                    <a href="{{ route('checkout') }}" class="btn btn-warning btn-lg w-100">
-                        <i class="fas fa-bolt"></i> Buy Now
-                    </a>
+                    @if($stock?->isOutOfStock())
+                        <button class="btn btn-warning btn-lg w-100" disabled>
+                            <i class="fas fa-ban"></i> Buy Now - Out of Stock
+                        </button>
+                    @else
+                        @auth
+                        <button type="button" class="btn btn-warning btn-lg w-100 buy-now-btn" data-product-id="{{ $product->id }}">
+                            <i class="fas fa-bolt"></i> Buy Now
+                        </button>
+                        @else
+                        <button type="button" class="btn btn-warning btn-lg w-100" onclick="redirectToLogin('buy_now')">
+                            <i class="fas fa-bolt"></i> Buy Now
+                        </button>
+                        @endauth
+                    @endif
 
                     @auth
                     <button type="button" class="btn btn-outline-danger w-100 wishlist-toggle-btn" data-product-id="{{ $product->id }}">
@@ -571,6 +583,76 @@
                 }
             });
         });
+
+        // ✅ PROFESSIONAL BUY NOW LOGIC (Amazon/Flipkart Style)
+        $('.buy-now-btn').on('click', function(e) {
+            e.preventDefault();
+            const btn = $(this);
+            const productId = btn.data('product-id');
+            
+            // Get quantity from current form
+            let quantity = 1;
+            if ($('.cart-qty-input').length) {
+                // Product already in cart - use cart quantity
+                quantity = parseInt($('.cart-qty-input').val()) || 1;
+            } else if ($('.new-product-qty').length) {
+                // Product not in cart - use selected quantity
+                quantity = parseInt($('.new-product-qty').val()) || 1;
+            }
+
+            // Show loading state
+            const originalText = btn.html();
+            btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Processing...');
+
+            // Professional Buy Now Flow
+            $.ajax({
+                url: "{{ route('cart.buyNow') }}",
+                type: 'POST',
+                data: {
+                    _token: "{{ csrf_token() }}",
+                    product_id: productId,
+                    quantity: quantity,
+                    buy_now: true  // Flag for direct checkout
+                },
+                success: function(response) {
+                    if (response.status) {
+                        showToast('Redirecting to checkout...', true);
+                        
+                        // Direct redirect to checkout (Amazon style)
+                        setTimeout(() => {
+                            window.location.href = response.checkout_url || "{{ route('checkout') }}";
+                        }, 500);
+                    } else {
+                        showToast(response.message, false);
+                        btn.prop('disabled', false).html(originalText);
+                    }
+                },
+                error: function(xhr) {
+                    let errorMessage = 'Something went wrong!';
+                    
+                    if (xhr.status === 422) {
+                        const errors = xhr.responseJSON.errors;
+                        errorMessage = Object.values(errors)[0][0];
+                    } else if (xhr.responseJSON && xhr.responseJSON.message) {
+                        errorMessage = xhr.responseJSON.message;
+                    }
+                    
+                    showToast(errorMessage, false);
+                    btn.prop('disabled', false).html(originalText);
+                }
+            });
+        });
+
+        // Login redirect with intent tracking
+        function redirectToLogin(intent) {
+            const returnUrl = encodeURIComponent(window.location.href);
+            const loginUrl = "{{ route('login') }}" + "?return_url=" + returnUrl + "&intent=" + intent;
+            
+            showToast("Please login to continue shopping", false);
+            setTimeout(() => {
+                window.location.href = loginUrl;
+            }, 1500);
+        }
 
         // Wishlist toggle functionality
         $('.wishlist-toggle-btn').on('click', function() {

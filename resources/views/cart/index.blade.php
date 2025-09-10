@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
@@ -565,5 +566,222 @@
             }
         });
     });
+
+    // ✅ MANUAL COUPON SYSTEM (No Auto-Load)
+
+    // View all coupons modal
+    $(document).on('click', '#viewAllCouponsBtn', function() {
+        loadAllCouponsModal();
+    });
+
+    // Load ALL coupons in modal (comprehensive view)
+    function loadAllCouponsModal() {
+        $('#couponsModal').modal('show');
+        $('#available-coupons-container').html(`
+            <div class="text-center py-4">
+                <div class="spinner-border" role="status"></div>
+                <div class="mt-2">Loading all available offers...</div>
+            </div>
+        `);
+        
+        $.get("{{ route('cart.availableCoupons') }}?mode=all", function(response) {
+            if (response.status) {
+                displayAllCouponsModal(response);
+            }
+        });
+    }
+
+    // Display comprehensive coupon view in modal
+    function displayAllCouponsModal(response) {
+        let html = '';
+
+        // Available Coupons Section
+        if (response.available_coupons.length > 0) {
+            html += `<div class="mb-4">
+                <h6 class="text-success d-flex align-items-center mb-3">
+                    <i class="fas fa-check-circle me-2"></i>
+                    Ready to Use (${response.available_coupons.length})
+                </h6>`;
+            response.available_coupons.forEach(coupon => {
+                html += createCouponCard(coupon, true);
+            });
+            html += '</div>';
+        }
+
+        // Near Miss Coupons (Smart Upsell)
+        if (response.near_miss_coupons && response.near_miss_coupons.length > 0) {
+            html += `<div class="mb-4">
+                <h6 class="text-warning d-flex align-items-center mb-3">
+                    <i class="fas fa-target me-2"></i>
+                    Almost There (${response.near_miss_coupons.length})
+                </h6>`;
+            response.near_miss_coupons.forEach(coupon => {
+                html += createCouponCard(coupon, false, true); // true for near-miss styling
+            });
+            html += '</div>';
+        }
+
+        // Other Unavailable Coupons
+        if (response.other_coupons && response.other_coupons.length > 0) {
+            html += `<div class="mb-4">
+                <h6 class="text-muted d-flex align-items-center mb-3">
+                    <i class="fas fa-lock me-2"></i>
+                    Other Offers (${response.other_coupons.length})
+                </h6>`;
+            response.other_coupons.forEach(coupon => {
+                html += createCouponCard(coupon, false);
+            });
+            html += '</div>';
+        }
+
+        if (!html) {
+            html = '<div class="text-center py-4 text-muted">No coupons available at the moment.</div>';
+        }
+
+        $('#available-coupons-container').html(html);
+    }
+
+    // Create professional coupon card with smart styling
+    function createCouponCard(coupon, isAvailable, isNearMiss = false) {
+        let cardClass = 'card mb-3 coupon-card';
+        let opacity = '1';
+        let buttonHtml = '';
+        
+        if (isAvailable) {
+            cardClass += ' border-success';
+            buttonHtml = `<button class="btn btn-primary btn-sm apply-coupon-btn" data-code="${coupon.code}">
+                <i class="fas fa-tag me-1"></i>Apply Now
+            </button>`;
+        } else if (isNearMiss) {
+            cardClass += ' border-warning';
+            opacity = '0.9';
+            buttonHtml = `<button class="btn btn-outline-warning btn-sm">
+                <i class="fas fa-shopping-cart me-1"></i>Add More Items
+            </button>`;
+        } else {
+            cardClass += ' border-light';
+            opacity = '0.6';
+            buttonHtml = `<button class="btn btn-secondary btn-sm" disabled>
+                <i class="fas fa-lock me-1"></i>Not Available
+            </button>`;
+        }
+
+        const statusIcon = isAvailable 
+            ? '<i class="fas fa-check-circle text-success"></i>'
+            : isNearMiss 
+                ? '<i class="fas fa-exclamation-triangle text-warning"></i>'
+                : '<i class="fas fa-times-circle text-muted"></i>';
+
+        return `
+            <div class="${cardClass}" style="opacity: ${opacity}">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <div class="d-flex align-items-center mb-2">
+                                <div class="coupon-badge me-3" style="background: ${coupon.banner_color}">
+                                    <span class="text-white fw-bold">${coupon.code}</span>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="d-flex align-items-center">
+                                        <h6 class="mb-0 me-2">${coupon.title}</h6>
+                                        ${statusIcon}
+                                    </div>
+                                    <span class="text-primary fw-bold">${coupon.display_info.discount_text}</span>
+                                </div>
+                            </div>
+                            <p class="small text-muted mb-2">${coupon.description}</p>
+                            <div class="small mb-2">
+                                ${coupon.display_info.min_order_text ? `<span class="badge bg-light text-dark me-2">${coupon.display_info.min_order_text}</span>` : ''}
+                                <span class="badge bg-light text-dark">${coupon.display_info.expires_text}</span>
+                                ${coupon.category ? `<span class="badge bg-info text-white ms-2">${coupon.category.replace('_', ' ').toUpperCase()}</span>` : ''}
+                            </div>
+                            ${coupon.terms ? `<div class="small text-muted mb-1"><strong>T&C:</strong> ${coupon.terms}</div>` : ''}
+                            ${coupon.reason ? `<div class="small ${isNearMiss ? 'text-warning' : 'text-danger'} fw-bold">${coupon.reason}</div>` : ''}
+                            ${coupon.savings_text ? `<div class="small text-success fw-bold mt-1">${coupon.savings_text}</div>` : ''}
+                        </div>
+                        <div class="col-md-4 text-end">
+                            ${buttonHtml}
+                            ${isAvailable && coupon.discount_amount ? `<div class="small text-success mt-2 fw-bold">💰 Save ₹${Math.round(coupon.discount_amount)}</div>` : ''}
+                            ${isNearMiss && coupon.gap_amount ? `<div class="small text-warning mt-2">+₹${Math.round(coupon.gap_amount)} needed</div>` : ''}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // Apply coupon from cards
+    $(document).on('click', '.apply-coupon-btn', function() {
+        const code = $(this).data('code');
+        $('#couponCode').val(code);
+        $('#applyCouponBtn').click();
+        $('#couponsModal').modal('hide');
+    });
+
+    // ✅ PROFESSIONAL CHECKOUT BUTTON (Cart → Checkout)
+    $(document).on('click', '#checkoutButton', function(e) {
+        e.preventDefault();
+        
+        const btn = $(this);
+        const originalText = btn.html();
+        
+        // Check if cart has items
+        const cartItems = $('#cart-items-container tr[data-product-row]').length;
+        if (cartItems === 0) {
+            showToast('Your cart is empty. Add some items first!', false);
+            return;
+        }
+        
+        // Show loading state
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Proceeding...');
+        
+        // Redirect to checkout with applied coupon preserved
+        setTimeout(() => {
+            window.location.href = "{{ route('checkout') }}";
+        }, 500);
+    });
+
 </script>
+
+<style>
+    .coupon-preview {
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .coupon-preview:hover {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        transform: translateY(-1px);
+    }
+    
+    .coupon-badge {
+        padding: 8px 12px;
+        border-radius: 8px;
+        min-width: 80px;
+        text-align: center;
+    }
+    
+    .coupon-card {
+        border: 1px solid #e0e0e0;
+        transition: all 0.3s ease;
+    }
+    
+    .coupon-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        transform: translateY(-2px);
+    }
+    
+    .near-miss-coupon {
+        background: linear-gradient(135deg, #fff3cd, #ffffff);
+        border-left: 4px solid #ffc107 !important;
+    }
+    
+    .coupon-card.border-success {
+        box-shadow: 0 2px 8px rgba(40, 167, 69, 0.2);
+    }
+    
+    .coupon-card.border-warning {
+        box-shadow: 0 2px 8px rgba(255, 193, 7, 0.2);
+    }
+</style>
 

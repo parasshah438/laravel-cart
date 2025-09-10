@@ -45,6 +45,13 @@ Route::get('/cart/saved-items-refresh', [CartController::class, 'refreshSavedIte
 Route::get('/cart/items/refresh', [CartController::class, 'refreshCartView'])->name('cart.items.refresh');
 Route::get('/cart/summary', [CartController::class, 'getCartSummary'])->name('cart.summary');
 
+// ✅ PROFESSIONAL BUY NOW ROUTE (Amazon/Flipkart Style)
+Route::post('/cart/buy-now', [CartController::class, 'buyNow'])->name('cart.buyNow')->middleware('auth');
+
+// ✅ SMART COUPON SYSTEM ROUTE (Amazon/Flipkart Style)
+// Single route handles both smart mode (?mode=smart) and all mode (?mode=all)
+Route::get('/cart/available-coupons', [CartController::class, 'getAvailableCoupons'])->name('cart.availableCoupons');
+
 Route::get('/cart/gift-products', [CartController::class, 'getGiftProducts'])->name('cart.giftProducts');
 Route::post('/cart/add-gifts', [CartController::class, 'addGifts'])->name('cart.addGifts');
 Route::post('/customization/save-image', [CartController::class, 'saveCustomizationImage'])->name('customization.saveImage');
@@ -96,5 +103,16 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/checkout/thank-you', function() {
             return view('checkout.thankyou');
         })->name('checkout.thankyou');
+        
+        // ✅ TEST EMAIL ROUTE (Remove in production)
+        Route::get('/test-order-email', function() {
+            $user = auth()->user();
+            if (!$user) return redirect()->route('login');
+            
+            $order = $user->orders()->with(['items', 'address.city', 'address.state', 'address.country'])->first();
+            if (!$order) return 'No orders found. Place an order first.';
+            
+            return new \App\Mail\OrderConfirmation($order);
+        })->name('test.order.email');
 });
 require __DIR__.'/auth.php';

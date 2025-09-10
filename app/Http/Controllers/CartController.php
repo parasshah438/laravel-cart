@@ -558,4 +558,261 @@ class CartController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * ✅ PROFESSIONAL BUY NOW METHOD (Amazon/Flipkart Style)
+     * Handles express checkout - adds item to cart and redirects to checkout
+     */
+    public function buyNow(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'product_id' => 'required|exists:products,id',
+            'quantity' => 'required|integer|min:1|max:10'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false, 
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            $product = Product::with('stocks')->findOrFail($request->product_id);
+            $stock = $product->stocks()->first();
+            
+            if (!$stock) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Stock information not available for this product'
+                ], 404);
+            }
+
+            // Use CartService for professional stock validation
+            $quantity = $request->input('quantity', 1);
+            $stockValidation = $this->cart->validateStock($stock->id, $quantity);
+            
+            if ($stockValidation !== true) {
+                return response()->json([
+                    'status' => false,
+                    'message' => $stockValidation
+                ], 400);
+            }
+
+            // Get current cart
+            $cart = $this->cart->getCurrentCart();
+
+            // Check if product already exists in cart
+            $existingItem = CartItem::where('cart_id', $cart->id)
+                ->where('product_id', $product->id)
+                ->first();
+
+            if ($existingItem) {
+                // For Buy Now, replace the quantity (don't add to existing)
+                $existingItem->update([
+                    'quantity' => $quantity,
+                    'price_at_time' => $product->price
+                ]);
+                $message = "Product quantity updated for express checkout";
+            } else {
+                // Add new item using CartService
+                $this->cart->add($request->product_id, $quantity);
+                $message = "Product added for express checkout";
+            }
+
+            // Get updated cart count
+            $cartCount = $cart->fresh()->items()->sum('quantity');
+
+            // Professional response with checkout URL (Amazon style)
+            return response()->json([
+                'status' => true,
+                'message' => $message,
+                'cart_count' => $cartCount,
+                'checkout_url' => route('checkout'), // Direct checkout redirect
+                'buy_now' => true, // Flag for frontend handling
+                'product' => [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'price' => $product->price,
+                    'quantity' => $quantity,
+                    'stock_available' => $stock->qty
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Unable to process express checkout. Please try again.',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+    /**
+     * ✅ SMART CART-BASED COUPON SYSTEM (Amazon/Flipkart Style)
+     * Shows relevant coupons based on cart value and intelligent recommendations
+     */
+    public function getAvailableCoupons(Request $request)
+    {
+        try {
+            $cart = $this->cart->getCurrentCart();
+            $cartTotal = $cart->items()->sum(\DB::raw('quantity * price_at_time'));
+            $showMode = $request->get('mode', 'smart'); // 'smart' or 'all'
+
+            // SMART FILTERING LOGIC (like real e-commerce)
+            if ($showMode === 'smart') {
+                $coupons = $this->getSmartCouponRecommendations($cartTotal);
+            } else {
+                // Show all active coupons for "View All" modal
+                $coupons = Coupon::active()->get();
+            }
+            
+            $availableCoupons = [];
+            $nearMissCoupons = []; // Coupons close to being applicable
+            $otherCoupons = []; // Other unavailable coupons
+
+            foreach ($coupons as $coupon) {
+                $couponData = [
+                    'id' => $coupon->id,
+                    'code' => $coupon->code,
+                    'title' => $coupon->title,
+                    'description' => $coupon->description,
+                    'terms' => $coupon->terms,
+                    'category' => $coupon->category,
+                    'banner_color' => $coupon->banner_color,
+                    'display_info' => $coupon->getDisplayInfo(),
+                    'is_applicable' => false,
+                    'reason' => '',
+                    'priority' => $this->getCouponPriority($coupon, $cartTotal)
+                ];
+
+                // Check if coupon is applicable
+                if ($coupon->isValid($cartTotal)) {
+                    $couponData['is_applicable'] = true;
+                    $couponData['discount_amount'] = $coupon->calculateDiscount($cartTotal);
+                    $couponData['savings_text'] = "You'll save ₹" . number_format($couponData['discount_amount'], 2);
+                    $availableCoupons[] = $couponData;
+                } else {
+                    // Categorize unavailable coupons smartly
+                    if ($coupon->min_cart_value && $cartTotal < $coupon->min_cart_value) {
+                        $gap = $coupon->min_cart_value - $cartTotal;
+                        $couponData['reason'] = "Add ₹" . number_format($gap, 2) . " more to unlock this offer";
+                        $couponData['gap_amount'] = $gap;
+                        
+                        // Near miss if gap is less than 25% of current cart
+                        if ($gap <= ($cartTotal * 0.25) || $gap <= 200) {
+                            $nearMissCoupons[] = $couponData;
+                        } else {
+                            $otherCoupons[] = $couponData;
+                        }
+                    } elseif ($coupon->usage_limit && $coupon->used_count >= $coupon->usage_limit) {
+                        $couponData['reason'] = "Offer expired - Usage limit reached";
+                        $otherCoupons[] = $couponData;
+                    } elseif ($coupon->expires_at && now()->gt($coupon->expires_at)) {
+                        $couponData['reason'] = "Offer expired";
+                        $otherCoupons[] = $couponData;
+                    } else {
+                        $couponData['reason'] = "Not applicable for your cart";
+                        $otherCoupons[] = $couponData;
+                    }
+                }
+            }
+
+            // Sort by priority (highest discount first)
+            usort($availableCoupons, fn($a, $b) => $b['priority'] <=> $a['priority']);
+            usort($nearMissCoupons, fn($a, $b) => ($a['gap_amount'] ?? 999999) <=> ($b['gap_amount'] ?? 999999));
+
+            return response()->json([
+                'status' => true,
+                'cart_total' => $cartTotal,
+                'show_mode' => $showMode,
+                'available_coupons' => $availableCoupons,
+                'near_miss_coupons' => $nearMissCoupons, // Show these prominently
+                'other_coupons' => $otherCoupons,
+                'recommendations' => $this->getCouponRecommendations($cartTotal, $availableCoupons),
+                'total_coupons' => count($coupons)
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Failed to load coupons',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+    /**
+     * Get smart coupon recommendations based on cart value
+     */
+    private function getSmartCouponRecommendations(float $cartTotal): \Illuminate\Support\Collection
+    {
+        return Coupon::active()
+            ->where(function ($query) use ($cartTotal) {
+                $query
+                    // Always show applicable coupons
+                    ->where('min_cart_value', '<=', $cartTotal)
+                    ->orWhereNull('min_cart_value')
+                    // Show near-miss coupons (within 25% or ₹200 of cart total)
+                    ->orWhere(function ($q) use ($cartTotal) {
+                        $maxGap = max($cartTotal * 0.25, 200);
+                        $q->where('min_cart_value', '>', $cartTotal)
+                          ->where('min_cart_value', '<=', $cartTotal + $maxGap);
+                    });
+            })
+            // Prioritize by category relevance
+            ->orderByRaw("
+                CASE category 
+                WHEN 'first_order' THEN 1
+                WHEN 'festival' THEN 2  
+                WHEN 'general' THEN 3
+                WHEN 'loyalty' THEN 4
+                ELSE 5 END
+            ")
+            ->orderBy('discount', 'desc')
+            ->limit(8) // Limit to top 8 relevant coupons
+            ->get();
+    }
+
+    /**
+     * Calculate coupon priority for sorting
+     */
+    private function getCouponPriority(Coupon $coupon, float $cartTotal): float
+    {
+        if (!$coupon->isValid($cartTotal)) {
+            return 0;
+        }
+
+        $discount = $coupon->calculateDiscount($cartTotal);
+        $priority = $discount;
+
+        // Boost priority for certain categories
+        $categoryBoost = [
+            'first_order' => 1.5,
+            'festival' => 1.3,
+            'general' => 1.0,
+            'loyalty' => 1.2,
+        ];
+
+        return $priority * ($categoryBoost[$coupon->category] ?? 1.0);
+    }
+
+    /**
+     * Get personalized recommendations
+     */
+    private function getCouponRecommendations(float $cartTotal, array $availableCoupons): array
+    {
+        $recommendations = [];
+
+        if (empty($availableCoupons)) {
+            $recommendations[] = "Add items worth ₹" . max(500 - $cartTotal, 0) . " to unlock more offers!";
+        } elseif (count($availableCoupons) === 1) {
+            $recommendations[] = "Great! You have 1 offer available.";
+        } else {
+            $bestSaving = max(array_column($availableCoupons, 'discount_amount'));
+            $recommendations[] = "Best offer: Save up to ₹" . number_format($bestSaving, 2) . "!";
+        }
+
+        return $recommendations;
+    }
 }
