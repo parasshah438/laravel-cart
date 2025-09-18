@@ -1,12 +1,119 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Bootstrap 5 Example</title>
+    <title>{{ $product->name }} - Product Details</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+@php
+    use Illuminate\Support\Facades\Storage;
+@endphp
+
+<style>
+    /* Amazon-style Rating Input Styles */
+    .rating-input {
+        display: flex;
+        gap: 5px;
+        align-items: center;
+    }
+    
+    .rating-input input[type="radio"] {
+        display: none;
+    }
+    
+    .rating-input label.star {
+        font-size: 2rem;
+        color: #ddd;
+        cursor: pointer;
+        transition: color 0.2s ease;
+    }
+    
+    .rating-input label.star:hover {
+        color: #ffc107;
+        transform: scale(1.1);
+    }
+    
+    /* When a radio is checked, color it and all previous stars */
+    .rating-input input[value="1"]:checked ~ label,
+    .rating-input input[value="1"]:checked + label {
+        color: #ffc107;
+    }
+    
+    .rating-input input[value="2"]:checked ~ label,
+    .rating-input input[value="2"]:checked + label,
+    .rating-input input[value="1"]:checked + label {
+        color: #ffc107;
+    }
+    
+    .rating-input input[value="3"]:checked ~ label,
+    .rating-input input[value="3"]:checked + label,
+    .rating-input input[value="2"]:checked + label,
+    .rating-input input[value="1"]:checked + label {
+        color: #ffc107;
+    }
+    
+    .rating-input input[value="4"]:checked ~ label,
+    .rating-input input[value="4"]:checked + label,
+    .rating-input input[value="3"]:checked + label,
+    .rating-input input[value="2"]:checked + label,
+    .rating-input input[value="1"]:checked + label {
+        color: #ffc107;
+    }
+    
+    .rating-input input[value="5"]:checked ~ label,
+    .rating-input input[value="5"]:checked + label,
+    .rating-input input[value="4"]:checked + label,
+    .rating-input input[value="3"]:checked + label,
+    .rating-input input[value="2"]:checked + label,
+    .rating-input input[value="1"]:checked + label {
+        color: #ffc107;
+    }
+    
+    /* Amazon-style review actions */
+    .review-actions {
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    .border-bottom:hover .review-actions {
+        opacity: 1;
+    }
+</style>
+
+<script>
+    // Enhanced rating system JavaScript - Global functions
+    function updateStarDisplay(selectedInput) {
+        const container = selectedInput.closest('.rating-input');
+        const allLabels = container.querySelectorAll('label.star');
+        const selectedValue = parseInt(selectedInput.value);
+        
+        // Reset all stars
+        allLabels.forEach(function(label) {
+            label.style.color = '#ddd';
+        });
+        
+        // Color the selected stars
+        for (let i = 1; i <= selectedValue; i++) {
+            const label = container.querySelector(`label[for*="rating-${i}"]`);
+            if (label) {
+                label.style.color = '#ffc107';
+            }
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add event listeners to all rating inputs
+        document.querySelectorAll('.rating-input input[type="radio"]').forEach(function(input) {
+            input.addEventListener('change', function() {
+                updateStarDisplay(this);
+            });
+        });
+    });
+</script>
     <!-- Glide.js CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@glidejs/glide@3.6.0/dist/css/glide.core.min.css">
 
@@ -281,11 +388,45 @@
                     </a>
                 </div>
 
-                {{-- Rating (placeholder for future use) --}}
-                <div class="mt-4">
-                    <strong>Rating:</strong>
-                    ★★★★☆ (Coming Soon)
-                </div>
+                {{-- Rating (based on user reviews) --}}
+                @if($reviewStats['total_reviews'] > 0)
+                    <div class="mt-4">
+                        <strong>Rating:</strong>
+                        <div class="d-inline-flex align-items-center">
+                            {{-- Star Rating Display --}}
+                            <div class="me-2" style="color: #ffc107; font-size: 1.1rem;">
+                                @for($i = 1; $i <= 5; $i++)
+                                    @if($i <= floor($reviewStats['average_rating']))
+                                        <i class="fas fa-star"></i>
+                                    @elseif($i == ceil($reviewStats['average_rating']) && $reviewStats['average_rating'] - floor($reviewStats['average_rating']) >= 0.5)
+                                        <i class="fas fa-star-half-alt"></i>
+                                    @else
+                                        <i class="far fa-star"></i>
+                                    @endif
+                                @endfor
+                            </div>
+                            {{-- Rating Value and Count --}}
+                            <span class="text-muted">
+                                <strong>{{ number_format($reviewStats['average_rating'], 1) }}</strong> out of 5 
+                                (<a href="#reviews" class="text-decoration-none" onclick="document.getElementById('reviews-tab').click();">{{ $reviewStats['total_reviews'] }} {{ Str::plural('review', $reviewStats['total_reviews']) }}</a>)
+                            </span>
+                        </div>
+                    </div>
+                @else
+                    <div class="mt-4">
+                        <strong>Rating:</strong>
+                        <div class="text-muted">
+                            <span style="color: #ddd; font-size: 1.1rem;">
+                                <i class="far fa-star"></i>
+                                <i class="far fa-star"></i>
+                                <i class="far fa-star"></i>
+                                <i class="far fa-star"></i>
+                                <i class="far fa-star"></i>
+                            </span>
+                            <span class="ms-2">No reviews yet - <a href="#reviews" class="text-decoration-none" onclick="document.getElementById('reviews-tab').click();">Be the first to review!</a></span>
+                        </div>
+                    </div>
+                @endif
             </div>
         </div>
     </div>
@@ -319,6 +460,443 @@
             </form>
         </div>
     </div>
+
+    <!-- ================================================================================================ -->
+    <!-- 📝 AMAZON-STYLE REVIEWS & RATINGS SECTION -->
+    <!-- ================================================================================================ -->
+    <div class="mt-5">
+        <div class="card border-0 shadow-sm">
+            <!-- Reviews Header with Tabs -->
+            <div class="card-header bg-white border-bottom">
+                <ul class="nav nav-tabs card-header-tabs" id="productTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="description-tab" data-bs-toggle="tab" data-bs-target="#description" type="button" role="tab">
+                            <i class="fas fa-info-circle me-2"></i>Description
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="reviews-tab" data-bs-toggle="tab" data-bs-target="#reviews" type="button" role="tab">
+                            <i class="fas fa-star me-2"></i>Reviews 
+                            @if($reviewStats['has_reviews'])
+                                <span class="badge bg-primary">{{ $reviewStats['total_reviews'] }}</span>
+                            @endif
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="specifications-tab" data-bs-toggle="tab" data-bs-target="#specifications" type="button" role="tab">
+                            <i class="fas fa-list me-2"></i>Specifications
+                        </button>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Tab Content -->
+            <div class="card-body">
+                <div class="tab-content" id="productTabContent">
+                    <!-- Description Tab -->
+                    <div class="tab-pane fade show active" id="description" role="tabpanel">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <h6 class="fw-bold mb-3">Product Description</h6>
+                                <p>{{ $product->description }}</p>
+                                
+                                <!-- Additional product details can go here -->
+                                <div class="mt-4">
+                                    <h6 class="fw-bold">Key Features</h6>
+                                    <ul class="list-unstyled">
+                                        <li><i class="fas fa-check text-success me-2"></i>High Quality Material</li>
+                                        <li><i class="fas fa-check text-success me-2"></i>Comfortable Fit</li>
+                                        <li><i class="fas fa-check text-success me-2"></i>Durable Design</li>
+                                        <li><i class="fas fa-check text-success me-2"></i>Easy Care Instructions</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="bg-light p-3 rounded">
+                                    <h6 class="fw-bold mb-3">Product Details</h6>
+                                    <table class="table table-sm table-borderless">
+                                        <tr><td class="fw-bold">Price:</td><td>${{ number_format($product->price, 2) }}</td></tr>
+                                        <tr><td class="fw-bold">Category:</td><td>{{ $product->category->name ?? 'N/A' }}</td></tr>
+                                        <tr><td class="fw-bold">Status:</td><td>
+                                            <span class="badge bg-success">{{ ucfirst($product->status) }}</span>
+                                        </td></tr>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Reviews Tab -->
+                    <div class="tab-pane fade" id="reviews" role="tabpanel">
+                        @if($reviewStats['has_reviews'])
+                            <!-- Reviews Summary -->
+                            <div class="row mb-4">
+                                <div class="col-md-4">
+                                    <div class="text-center p-4 bg-light rounded">
+                                        <div class="display-4 fw-bold text-warning mb-2">{{ number_format($reviewStats['average_rating'], 1) }}</div>
+                                        <div class="mb-2">
+                                            @for($i = 1; $i <= 5; $i++)
+                                                <i class="fas fa-star {{ $i <= round($reviewStats['average_rating']) ? 'text-warning' : 'text-muted' }}"></i>
+                                            @endfor
+                                        </div>
+                                        <div class="text-muted">{{ $reviewStats['total_reviews'] }} reviews</div>
+                                        @if($reviewStats['verified_percentage'] > 0)
+                                            <div class="mt-2">
+                                                <small class="text-success">
+                                                    <i class="fas fa-check-circle"></i> {{ $reviewStats['verified_percentage'] }}% verified purchases
+                                                </small>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                                <div class="col-md-8">
+                                    <h6 class="mb-3">Rating Breakdown</h6>
+                                    @for($rating = 5; $rating >= 1; $rating--)
+                                        @php
+                                            $data = $reviewStats['rating_breakdown'][$rating] ?? ['count' => 0, 'percentage' => 0];
+                                        @endphp
+                                        <div class="d-flex align-items-center mb-2">
+                                            <span class="me-2 text-nowrap">{{ $rating }} ★</span>
+                                            <div class="progress flex-grow-1 me-2" style="height: 8px;">
+                                                <div class="progress-bar bg-warning" style="width: {{ $data['percentage'] }}%"></div>
+                                            </div>
+                                            <span class="text-muted small">{{ $data['count'] }}</span>
+                                        </div>
+                                    @endfor
+                                </div>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h6 class="mb-0">Customer Reviews</h6>
+                                <div>
+                                    @auth
+                                        <button type="button" class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#writeReviewModal">
+                                            <i class="fas fa-star me-2"></i>Write Review
+                                        </button>
+                                    @else
+                                        <a href="{{ route('login') }}" class="btn btn-outline-primary me-2">
+                                            <i class="fas fa-sign-in-alt me-2"></i>Login to Review
+                                        </a>
+                                    @endauth
+                                    <a href="{{ $reviewStats['all_reviews_url'] }}" class="btn btn-outline-secondary">
+                                        <i class="fas fa-external-link-alt me-2"></i>See All Reviews
+                                    </a>
+                                </div>
+                            </div>
+
+                            <!-- Recent Reviews -->
+                            @if(isset($reviewsWithIndicators) && $reviewsWithIndicators->count() > 0)
+                                @foreach($reviewsWithIndicators as $review)
+                                    <div class="border-bottom pb-3 mb-3">
+                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                            <div class="d-flex align-items-center">
+                                                <div class="me-3">
+                                                    <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center" 
+                                                         style="width: 40px; height: 40px;">
+                                                        <span class="text-white fw-bold">{{ strtoupper(substr($review->user->name, 0, 1)) }}</span>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <h6 class="mb-1">{{ $review->user->name }}</h6>
+                                                    <div class="d-flex align-items-center mb-1">
+                                                        @for($i = 1; $i <= 5; $i++)
+                                                            <i class="fas fa-star {{ $i <= $review->rating ? 'text-warning' : 'text-muted' }} small"></i>
+                                                        @endfor
+                                                        <span class="ms-2 small fw-bold">{{ $review->rating }}/5</span>
+                                                        
+                                                        <!-- Quality Indicators -->
+                                                        @if($review->quality_indicators)
+                                                            @foreach($review->quality_indicators as $indicator)
+                                                                <span class="badge bg-{{ $indicator['class'] }} ms-1 small" 
+                                                                      title="{{ $indicator['text'] }}">
+                                                                    <i class="fas fa-{{ $indicator['icon'] }}"></i>
+                                                                    @if($indicator['type'] === 'verified')
+                                                                        Verified
+                                                                    @elseif($indicator['type'] === 'helpful')
+                                                                        Helpful
+                                                                    @elseif($indicator['type'] === 'trusted')
+                                                                        Trusted
+                                                                    @elseif($indicator['type'] === 'photos')
+                                                                        Photos
+                                                                    @endif
+                                                                </span>
+                                                            @endforeach
+                                                        @endif
+                                                        
+                                                        <!-- Highlight indicator for exceptional reviews -->
+                                                        @if($review->should_highlight)
+                                                            <span class="badge bg-gradient bg-warning text-dark ms-1 small">
+                                                                <i class="fas fa-crown"></i> Top Review
+                                                            </span>
+                                                        @endif
+                                                    </div>
+                                                    <small class="text-muted">{{ $review->created_at->format('M d, Y') }}</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        @if($review->title)
+                                            <h6 class="mb-2 text-primary">{{ $review->title }}</h6>
+                                        @endif
+                                        
+                                        <p class="mb-2">{{ $review->comment }}</p>
+                                        
+                                        @if($review->hasPhotos())
+                                            <div class="mb-2">
+                                                <div class="d-flex gap-2">
+                                                    @foreach($review->photos as $photo)
+                                                        <img src="{{ asset('storage/' . $photo) }}" alt="Review Photo" 
+                                                             class="img-thumbnail" style="width: 60px; height: 60px; object-fit: cover; cursor: pointer;"
+                                                             onclick="showImageModal('{{ asset('storage/' . $photo) }}')">
+                                                    @endforeach
+                                                </div>
+                                            </div>
+                                        @endif
+                                        
+                                        @if($review->would_recommend !== null)
+                                            <div class="mb-2">
+                                                @if($review->would_recommend)
+                                                    <span class="badge bg-success">
+                                                        <i class="fas fa-thumbs-up me-1"></i>Recommends
+                                                    </span>
+                                                @else
+                                                    <span class="badge bg-warning text-dark">
+                                                        <i class="fas fa-thumbs-down me-1"></i>Doesn't recommend
+                                                    </span>
+                                                @endif
+                                            </div>
+                                        @endif
+                                        
+                                        <div class="d-flex align-items-center justify-content-between">
+                                            <div class="d-flex align-items-center">
+                                                @auth
+                                                    @if($review->user_id !== auth()->id())
+                                                        <button type="button" class="btn btn-sm btn-outline-success me-2" 
+                                                                onclick="voteHelpful({{ $review->id }}, true)">
+                                                            <i class="fas fa-thumbs-up me-1"></i>
+                                                            Helpful ({{ $review->helpful_count }})
+                                                        </button>
+                                                    @endif
+                                                @else
+                                                    <span class="text-muted small">
+                                                        <i class="fas fa-thumbs-up text-success me-1"></i>
+                                                        {{ $review->helpful_count }} found helpful
+                                                    </span>
+                                                @endauth
+                                            </div>
+                                            
+                                            <!-- Amazon-Style: Owner Actions -->
+                                            @auth
+                                                @if($review->user_id === auth()->id())
+                                                    <div class="d-flex align-items-center">
+                                                        @php
+                                                            $canEdit = $review->created_at->diffInDays(now()) <= 90; // 90-day Amazon-style limit
+                                                            $isLocked = $review->helpful_count >= 20; // Lock highly helpful reviews
+                                                        @endphp
+                                                        
+                                                        @if($canEdit && !$isLocked)
+                                                            <button type="button" class="btn btn-sm btn-outline-primary me-2" 
+                                                                    onclick="editReview({{ $review->id }})">
+                                                                <i class="fas fa-edit me-1"></i>Edit
+                                                            </button>
+                                                        @elseif($isLocked)
+                                                            <span class="text-muted small me-2" title="This review has received many helpful votes and cannot be edited">
+                                                                <i class="fas fa-lock me-1"></i>Locked
+                                                            </span>
+                                                        @elseif(!$canEdit)
+                                                            <span class="text-muted small me-2" title="Reviews can only be edited within 90 days">
+                                                                <i class="fas fa-clock me-1"></i>Edit period expired
+                                                            </span>
+                                                        @endif
+                                                        
+                                                        <div class="dropdown">
+                                                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" 
+                                                                    data-bs-toggle="dropdown" aria-expanded="false">
+                                                                <i class="fas fa-ellipsis-v"></i>
+                                                            </button>
+                                                            <ul class="dropdown-menu">
+                                                                @if($canEdit && !$isLocked)
+                                                                    <li><a class="dropdown-item" href="#" onclick="editReview({{ $review->id }})">
+                                                                        <i class="fas fa-edit me-2"></i>Edit Review
+                                                                    </a></li>
+                                                                @endif
+                                                                <li><a class="dropdown-item text-danger" href="#" onclick="deleteReview({{ $review->id }})">
+                                                                    <i class="fas fa-trash me-2"></i>Delete Review
+                                                                </a></li>
+                                                            </ul>
+                                                        </div>
+                                                    </div>
+                                                @endif
+                                            @endauth
+                                        </div>
+                                    </div>
+                                @endforeach
+
+                                @if($reviewStats['total_reviews'] > $reviewStats['recent_reviews_count'])
+                                    <div class="text-center mt-4">
+                                        <a href="{{ $reviewStats['all_reviews_url'] }}" class="btn btn-outline-primary">
+                                            <i class="fas fa-plus me-2"></i>View All {{ $reviewStats['total_reviews'] }} Reviews
+                                        </a>
+                                    </div>
+                                @endif
+                            @endif
+                        @else
+                            <!-- No Reviews State -->
+                            <div class="text-center py-5">
+                                <i class="fas fa-star fa-3x text-muted mb-3"></i>
+                                <h5>No Reviews Yet</h5>
+                                <p class="text-muted mb-3">Be the first to review {{ $product->name }}!</p>
+                                @auth
+                                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#writeReviewModal">
+                                        <i class="fas fa-star me-2"></i>Write First Review
+                                    </button>
+                                @else
+                                    <a href="{{ route('login') }}" class="btn btn-primary">
+                                        <i class="fas fa-sign-in-alt me-2"></i>Login to Write Review
+                                    </a>
+                                @endauth
+                            </div>
+                        @endif
+                    </div>
+
+                    <!-- Specifications Tab -->
+                    <div class="tab-pane fade" id="specifications" role="tabpanel">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="fw-bold mb-3">General</h6>
+                                <table class="table table-striped">
+                                    <tr><td class="fw-bold">Brand</td><td>{{ $product->brand ?? 'N/A' }}</td></tr>
+                                    <tr><td class="fw-bold">Model</td><td>{{ $product->model ?? 'N/A' }}</td></tr>
+                                    <tr><td class="fw-bold">Material</td><td>Premium Quality</td></tr>
+                                    <tr><td class="fw-bold">Color</td><td>As shown in image</td></tr>
+                                </table>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="fw-bold mb-3">Additional Info</h6>
+                                <table class="table table-striped">
+                                    <tr><td class="fw-bold">Warranty</td><td>1 Year</td></tr>
+                                    <tr><td class="fw-bold">Care Instructions</td><td>Follow care label</td></tr>
+                                    <tr><td class="fw-bold">Country of Origin</td><td>India</td></tr>
+                                    <tr><td class="fw-bold">Package Contents</td><td>1 x {{ $product->name }}</td></tr>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Write Review Modal (for authenticated users) -->
+    @auth
+        @include('reviews.partials.write-modal', ['product' => $product])
+    @endauth
+
+    <!-- Edit Review Modal -->
+    @auth
+        <div class="modal fade" id="editReviewModal" tabindex="-1" aria-labelledby="editReviewModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="editReviewModalLabel">
+                            <i class="fas fa-edit me-2"></i>Edit Your Review
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <form id="editReviewForm" method="POST" enctype="multipart/form-data">
+                        @csrf
+                        @method('PUT')
+                        <div class="modal-body">
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>Amazon-style editing:</strong> You can edit your review within 90 days. Highly helpful reviews may be locked from editing.
+                            </div>
+                            
+                            <!-- Rating -->
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Overall Rating</label>
+                                <div class="rating-input">
+                                    <input type="radio" name="rating" value="1" id="edit-rating-1" required>
+                                    <label for="edit-rating-1" class="star">★</label>
+                                    
+                                    <input type="radio" name="rating" value="2" id="edit-rating-2" required>
+                                    <label for="edit-rating-2" class="star">★</label>
+                                    
+                                    <input type="radio" name="rating" value="3" id="edit-rating-3" required>
+                                    <label for="edit-rating-3" class="star">★</label>
+                                    
+                                    <input type="radio" name="rating" value="4" id="edit-rating-4" required>
+                                    <label for="edit-rating-4" class="star">★</label>
+                                    
+                                    <input type="radio" name="rating" value="5" id="edit-rating-5" required>
+                                    <label for="edit-rating-5" class="star">★</label>
+                                </div>
+                            </div>
+
+                            <!-- Title -->
+                            <div class="mb-3">
+                                <label for="edit-title" class="form-label fw-bold">Review Title (Optional)</label>
+                                <input type="text" class="form-control" id="edit-title" name="title" maxlength="200" placeholder="Summarize your review...">
+                            </div>
+
+                            <!-- Comment -->
+                            <div class="mb-3">
+                                <label for="edit-comment" class="form-label fw-bold">Your Review</label>
+                                <textarea class="form-control" id="edit-comment" name="comment" rows="4" required minlength="10" maxlength="2000" placeholder="Share your experience with this product..."></textarea>
+                                <div class="form-text">Minimum 10 characters, maximum 2000</div>
+                            </div>
+
+                            <!-- Would Recommend -->
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Would you recommend this product?</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="would_recommend" id="edit-recommend-yes" value="1">
+                                    <label class="form-check-label" for="edit-recommend-yes">
+                                        <i class="fas fa-thumbs-up text-success me-1"></i>Yes, I recommend this product
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="would_recommend" id="edit-recommend-no" value="0">
+                                    <label class="form-check-label" for="edit-recommend-no">
+                                        <i class="fas fa-thumbs-down text-danger me-1"></i>No, I don't recommend this product
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Product Variant -->
+                            <div class="mb-3">
+                                <label for="edit-variant" class="form-label fw-bold">Product Variant (Optional)</label>
+                                <input type="text" class="form-control" id="edit-variant" name="product_variant" maxlength="100" placeholder="e.g., Size: Large, Color: Blue">
+                            </div>
+
+                            <!-- Current Photos -->
+                            <div class="mb-3" id="current-photos-section" style="display: none;">
+                                <label class="form-label fw-bold">Current Photos</label>
+                                <div id="current-photos-display" class="d-flex gap-2 mb-2"></div>
+                            </div>
+
+                            <!-- New Photos -->
+                            <div class="mb-3">
+                                <label for="edit-photos" class="form-label fw-bold">Add New Photos (Optional)</label>
+                                <input type="file" class="form-control" id="edit-photos" name="photos[]" multiple accept="image/*">
+                                <div class="form-text">You can upload up to 5 photos total. Supported formats: JPG, PNG, GIF. Max size: 2MB each.</div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Update Review
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    @endauth
+
+    <!-- Image Preview Modal -->
+    @include('reviews.partials.image-modal')
 
     {{-- Similar Products --}}
     @if($similarProducts->count())
@@ -720,6 +1298,274 @@
             }
         }).fail(function() {
             showToast("Failed to update wishlist", false);
+        });
+    });
+
+    // ================================================================================================
+    // 📝 REVIEWS FUNCTIONALITY (Amazon Style)
+    // ================================================================================================
+    
+    // Vote on review helpfulness
+    function voteHelpful(reviewId, isHelpful) {
+        fetch(`/review/${reviewId}/helpful`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: JSON.stringify({ is_helpful: isHelpful })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast(data.message, true);
+                // Update the button counts
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast(data.message, false);
+            }
+        })
+        .catch(error => {
+            showToast('An error occurred. Please try again.', false);
+        });
+    }
+
+    // Show image in modal
+    function showImageModal(imageUrl) {
+        document.getElementById('imageModalImg').src = imageUrl;
+        new bootstrap.Modal(document.getElementById('imageModal')).show();
+    }
+
+    // ================================================================================================
+    // 📝 AMAZON-STYLE EDIT/DELETE REVIEW FUNCTIONALITY
+    // ================================================================================================
+    
+    // Edit review - Simplified with better error handling
+    function editReview(reviewId) {
+        console.log('=== EDIT REVIEW DEBUG START ===');
+        console.log('Review ID:', reviewId);
+        
+        // Test if modal exists first
+        const modalElement = document.getElementById('editReviewModal');
+        if (!modalElement) {
+            console.error('Modal element not found!');
+            alert('Edit modal not found on page');
+            return;
+        }
+        
+        // Test if form exists
+        const formElement = document.getElementById('editReviewForm');
+        if (!formElement) {
+            console.error('Form element not found!');
+            alert('Edit form not found on page');
+            return;
+        }
+        
+        console.log('Modal and form elements found, making API call...');
+        
+        // Fetch review data
+        fetch(`/review/${reviewId}/edit`)
+            .then(response => {
+                console.log('API Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('API Response data:', data);
+                
+                if (!data.success) {
+                    console.error('Server returned error:', data.message);
+                    alert(data.message || 'Failed to load review data');
+                    return;
+                }
+                
+                const review = data.review;
+                console.log('Processing review data:', review);
+                
+                // Clear form first
+                try {
+                    formElement.reset();
+                    console.log('Form reset successful');
+                } catch (error) {
+                    console.error('Error resetting form:', error);
+                }
+                
+                // Set rating
+                try {
+                    const ratingInput = document.querySelector(`input[name="rating"][value="${review.rating}"]`);
+                    if (ratingInput) {
+                        ratingInput.checked = true;
+                        console.log('Rating set successfully:', review.rating);
+                        
+                        // Update star display
+                        if (typeof updateStarDisplay === 'function') {
+                            updateStarDisplay(ratingInput);
+                            console.log('Star display updated');
+                        }
+                    } else {
+                        console.error('Rating input not found for value:', review.rating);
+                    }
+                } catch (error) {
+                    console.error('Error setting rating:', error);
+                }
+                
+                // Set form fields
+                try {
+                    const titleField = document.getElementById('edit-title');
+                    const commentField = document.getElementById('edit-comment');
+                    const variantField = document.getElementById('edit-variant');
+                    
+                    if (titleField) {
+                        titleField.value = review.title || '';
+                        console.log('Title set:', review.title);
+                    }
+                    if (commentField) {
+                        commentField.value = review.comment || '';
+                        console.log('Comment set');
+                    }
+                    if (variantField) {
+                        variantField.value = review.product_variant || '';
+                        console.log('Variant set:', review.product_variant);
+                    }
+                } catch (error) {
+                    console.error('Error setting form fields:', error);
+                }
+                
+                // Set recommendation
+                try {
+                    if (review.would_recommend !== null && review.would_recommend !== undefined) {
+                        const recommendInput = document.getElementById(review.would_recommend ? 'edit-recommend-yes' : 'edit-recommend-no');
+                        if (recommendInput) {
+                            recommendInput.checked = true;
+                            console.log('Recommendation set:', review.would_recommend);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error setting recommendation:', error);
+                }
+                
+                // Set form action
+                try {
+                    formElement.action = `/review/${reviewId}`;
+                    console.log('Form action set to:', formElement.action);
+                } catch (error) {
+                    console.error('Error setting form action:', error);
+                }
+                
+                // Show modal
+                try {
+                    console.log('About to show modal...');
+                    const modal = new bootstrap.Modal(modalElement);
+                    modal.show();
+                    console.log('Modal shown successfully');
+                } catch (error) {
+                    console.error('Error showing modal:', error);
+                    alert('Error showing edit modal: ' + error.message);
+                }
+                
+                console.log('=== EDIT REVIEW DEBUG END ===');
+            })
+            .catch(error => {
+                console.error('=== FETCH ERROR ===');
+                console.error('Error details:', error);
+                console.error('Error stack:', error.stack);
+                alert('Network error loading review data: ' + error.message);
+            });
+    }
+    
+    // Remove photo from edit form
+    function removePhoto(index) {
+        const photoElements = document.querySelectorAll('#current-photos-display > div');
+        if (photoElements[index]) {
+            photoElements[index].remove();
+        }
+        
+        // Check if no photos left
+        const remainingPhotos = document.querySelectorAll('#current-photos-display > div');
+        if (remainingPhotos.length === 0) {
+            document.getElementById('current-photos-section').style.display = 'none';
+        }
+    }
+    
+    // Delete review
+    function deleteReview(reviewId) {
+        if (confirm('Are you sure you want to delete this review? This action cannot be undone.')) {
+            fetch(`/review/${reviewId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message, true);
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast(data.message, false);
+                }
+            })
+            .catch(error => {
+                showToast('Failed to delete review', false);
+            });
+        }
+    }
+    
+    // Handle edit review form submission
+    document.getElementById('editReviewForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const submitBtn = this.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Updating...';
+        
+        const formData = new FormData(this);
+        
+        fetch(this.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast(data.message, true);
+                bootstrap.Modal.getInstance(document.getElementById('editReviewModal')).hide();
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast(data.message, false);
+            }
+        })
+        .catch(error => {
+            showToast('Failed to update review', false);
+        })
+        .finally(() => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+        });
+    });
+
+    // Handle tab switching to reviews (for URL fragments)
+    $(document).ready(function() {
+        // Check if URL has #reviews fragment
+        if (window.location.hash === '#reviews') {
+            $('#reviews-tab').tab('show');
+        }
+        
+        // Update URL when switching to reviews tab
+        $('#reviews-tab').on('shown.bs.tab', function (e) {
+            window.location.hash = 'reviews';
+        });
+        
+        // Remove hash when switching to other tabs
+        $('#description-tab, #specifications-tab').on('shown.bs.tab', function (e) {
+            history.replaceState(null, null, window.location.pathname);
         });
     });
 </script>

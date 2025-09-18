@@ -7,6 +7,8 @@ use App\Models\Category;
 use App\Models\Wishlist;
 use App\Models\Cart;
 use App\Models\CartItem;
+use App\Models\Review;
+use App\Services\ReviewModerationService;
 use Illuminate\Http\Request;
 use App\Models\RecentlyViewedProduct;
 use App\Http\Controllers\Traits\SEOTrait;
@@ -17,8 +19,11 @@ class ProductController extends Controller
 {
     use SEOTrait;
 
-    public function __construct()
+    protected $moderationService;
+
+    public function __construct(ReviewModerationService $moderationService)
     {
+        $this->moderationService = $moderationService;
         $this->initializeSEO();
     }
 
@@ -88,6 +93,15 @@ class ProductController extends Controller
         $structuredData = $this->addProductStructuredData($product);
         view()->share('productSchema', json_encode($structuredData, JSON_UNESCAPED_SLASHES));
 
+        // Enhanced reviews with quality indicators
+        $reviews = $product->reviews()->approved()->with('user')->latest()->get();
+        $reviewsWithIndicators = $reviews->map(function ($review) {
+            $indicators = $this->moderationService->getReviewQualityIndicators($review);
+            $review->quality_indicators = $indicators;
+            $review->should_highlight = $this->moderationService->shouldHighlightReview($review);
+            return $review;
+        });
+
         // Related products
         $relatedProducts = Product::where('category_id', $product->category_id)
             ->where('id', '!=', $product->id)
@@ -98,7 +112,7 @@ class ProductController extends Controller
         // Set cache headers for product pages
         $this->setCacheHeaders(30); // 30 minutes
 
-        return view('products.show', compact('product', 'relatedProducts'));
+        return view('products.show', compact('product', 'relatedProducts', 'reviewsWithIndicators'));
     }
 
     /**
@@ -284,7 +298,72 @@ class ProductController extends Controller
                 $cartItem = $cart->items()->where('product_id', $product->id)->first();
             }
         }
+
+        // ================================================================================================
+        // 📝 LOAD REVIEWS DATA FOR PRODUCT PAGE (Amazon Style)
+        // ================================================================================================
+        
+        // Get recent reviews (limit for initial display)
+        $reviews = $product->reviews()
+            ->approved()
+            ->with(['user', 'helpfulnessVotes'])
+            ->latest()
+            ->limit(5)
+            ->get();
+
+        // Enhanced reviews with quality indicators
+        $reviewsWithIndicators = $reviews->map(function ($review) {
+            $indicators = $this->moderationService->getReviewQualityIndicators($review);
+            $review->quality_indicators = $indicators;
+            $review->should_highlight = $this->moderationService->shouldHighlightReview($review);
+            return $review;
+        });
+
+        // Calculate review statistics
+        $reviewStats = [
+            'average_rating' => $product->average_rating,
+            'total_reviews' => $product->review_count,
+            'rating_breakdown' => $this->getProductRatingBreakdown($product),
+            'verified_percentage' => $this->getVerifiedPercentage($product),
+            'has_reviews' => $product->hasReviews(),
+            'recent_reviews_count' => $reviews->count(),
+            'all_reviews_url' => route('product.reviews', $product)
+        ];
             
-        return view('products.show', compact('product','wishlistProductIds','similarProducts','cartItem'));
+        return view('products.show', compact('product','wishlistProductIds','similarProducts','cartItem', 'reviewsWithIndicators', 'reviewStats'));
     }
+
+    /**
+     * Get rating breakdown for product
+     */
+    private function getProductRatingBreakdown($product): array
+    {
+        $breakdown = [];
+        $totalReviews = $product->review_count;
+        
+        for ($rating = 1; $rating <= 5; $rating++) {
+            $count = $product->reviews()->approved()->where('rating', $rating)->count();
+            $percentage = $totalReviews > 0 ? round(($count / $totalReviews) * 100) : 0;
+            
+            $breakdown[$rating] = [
+                'count' => $count,
+                'percentage' => $percentage
+            ];
+        }
+        
+        return $breakdown;
+    }
+
+    /**
+     * Get verified purchase percentage
+     */
+    private function getVerifiedPercentage($product): int
+    {
+        $total = $product->review_count;
+        if ($total === 0) return 0;
+        
+        $verified = $product->reviews()->approved()->where('verified_purchase', true)->count();
+        return round(($verified / $total) * 100);
+    }
+    
 }

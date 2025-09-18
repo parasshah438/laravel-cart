@@ -934,6 +934,11 @@
                             <a class="nav-link" href="#">Beauty</a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link" href="{{ route('reviews.all') }}">
+                                <i class="fas fa-star text-warning me-1"></i>Reviews
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link" href="#">Studio</a>
                         </li>
                     </ul>

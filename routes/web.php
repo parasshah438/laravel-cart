@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\{ProfileController, CartController, WishlistController, FrontendController, ProductController, CheckoutController, AddressController, CategoryController};
+use App\Http\Controllers\{ProfileController, CartController, WishlistController, FrontendController, ProductController, CheckoutController, AddressController, CategoryController, ReviewController};
 
 
 Route::get('/', [FrontendController::class, 'index'])->name('front.index');
@@ -48,6 +48,14 @@ Route::get('/cart/summary', [CartController::class, 'getCartSummary'])->name('ca
 // ✅ PROFESSIONAL BUY NOW ROUTE (Amazon/Flipkart Style)
 Route::post('/cart/buy-now', [CartController::class, 'buyNow'])->name('cart.buyNow')->middleware('auth');
 
+// ================================================================================================
+// 📝 REVIEWS & RATINGS ROUTES - Professional Amazon/Flipkart Style System
+// ================================================================================================
+
+// Public review routes
+Route::get('/reviews', [ReviewController::class, 'allReviews'])->name('reviews.all');
+Route::get('/product/{product}/reviews', [ReviewController::class, 'index'])->name('product.reviews');
+
 // ✅ SMART COUPON SYSTEM ROUTE (Amazon/Flipkart Style)
 // Single route handles both smart mode (?mode=smart) and all mode (?mode=all)
 Route::get('/cart/available-coupons', [CartController::class, 'getAvailableCoupons'])->name('cart.availableCoupons');
@@ -68,6 +76,10 @@ Route::prefix('api')->group(function() {
     Route::get('/load-address/{id}', [AddressController::class, 'apiShow']);
 });
 
+// ================================================================================================
+// 📝 AUTHENTICATED ROUTES
+// ================================================================================================
+
 Route::middleware(['auth'])->group(function () {
     // Order Details page
     Route::get('/order/{order}', [\App\Http\Controllers\CheckoutController::class, 'orderDetails'])->name('order.details');
@@ -84,6 +96,20 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/wishlist/move-all-to-cart', [WishlistController::class, 'moveAllToCart'])->name('wishlist.moveAllToCart');
     Route::delete('/wishlist/clear', [WishlistController::class, 'clear'])->name('wishlist.clear');
     Route::post('/cart/move-to-wishlist', [CartController::class, 'moveToWishlist'])->name('cart.moveToWishlist');
+
+    // ================================================================================================
+    // 📝 REVIEWS & RATINGS SYSTEM (Authenticated Routes)
+    // ================================================================================================
+    // Write & manage reviews
+    Route::post('/product/{product}/review', [ReviewController::class, 'store'])->name('review.store');
+    Route::get('/review/{review}/edit', [ReviewController::class, 'edit'])->name('review.edit');
+    Route::put('/review/{review}', [ReviewController::class, 'update'])->name('review.update');
+    Route::delete('/review/{review}', [ReviewController::class, 'destroy'])->name('review.destroy');
+    
+    // Review interactions
+    Route::post('/review/{review}/helpful', [ReviewController::class, 'markHelpful'])->name('review.helpful');
+    Route::post('/review/{review}/report', [ReviewController::class, 'report'])->name('review.report');
+    Route::post('/review/{review}/photo', [ReviewController::class, 'addPhoto'])->name('review.photo');
 
     //Address
     Route::resource('address', AddressController::class);
@@ -115,4 +141,19 @@ Route::middleware(['auth'])->group(function () {
             return new \App\Mail\OrderConfirmation($order);
         })->name('test.order.email');
 });
+
+// ================================================================================================
+// 🔧 ADMIN ROUTES (Amazon-Style Review Management)
+// ================================================================================================
+Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () {
+    Route::get('/reviews', [\App\Http\Controllers\Admin\AdminReviewController::class, 'index'])->name('reviews.index');
+    Route::get('/reviews/{review}', [\App\Http\Controllers\Admin\AdminReviewController::class, 'show'])->name('reviews.show');
+    Route::post('/reviews/{review}/approve', [\App\Http\Controllers\Admin\AdminReviewController::class, 'approve'])->name('reviews.approve');
+    Route::post('/reviews/{review}/reject', [\App\Http\Controllers\Admin\AdminReviewController::class, 'reject'])->name('reviews.reject');
+    Route::get('/reviews/analytics/data', [\App\Http\Controllers\Admin\AdminReviewController::class, 'analytics'])->name('reviews.analytics');
+});
+
+// Include test routes for Amazon review system (remove in production)
+include __DIR__ . '/test-reviews.php';
+
 require __DIR__.'/auth.php';
