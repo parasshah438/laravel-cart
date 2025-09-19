@@ -147,9 +147,9 @@ class CartController extends Controller
             return response()->json(['status' => false, 'message' => $result]);
         }
 
-        $this->cart->add($request->product_id, $request->quantity ?? 1);
+        $this->cart->add($request->product_id, $quantity);
 
-        return response()->json(['status' => true, 'message' => 'Added to cart']);
+        return response()->json(['status' => true, 'message' => 'Added to cart', 'product_id' => $request->product_id]);
     }
 
     public function ajaxUpdate(Request $request)

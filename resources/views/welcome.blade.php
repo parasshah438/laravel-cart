@@ -886,67 +886,75 @@
         .gift-checkbox {
             transform: scale(1.3);
             accent-color: #007bff;
-
-            < !-- Scripts --><script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>< !-- Gift Products Modal --><div class="modal fade" id="giftProductsModal" tabindex="-1" aria-labelledby="giftProductsModalLabel" aria-hidden="true"><div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header bg-gradient-primary text-white"><h5 class="modal-title" id="giftProductsModalLabel">🎁 <strong>Add Something Extra Special !</strong></h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button></div><div class="modal-body">< !-- Gift products will be loaded here via AJAX --><div class="text-center py-4"><i class="fas fa-spinner fa-spin fa-2x text-primary"></i><p class="mt-2">Loading gift products...</p></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="fas fa-times"></i>Skip </button><button type="button" class="btn btn-primary" id="addGiftsToCart"><i class="fas fa-gift"></i>Continue Shopping </button></div></div></div></div><style>.bg-gradient-primary {
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            }
-
-            .gift-product {
-                transition: all 0.3s ease;
-                border: 2px solid transparent;
-            }
-
-            .gift-product:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            }
-
-            .gift-product.selected {
-                border-color: #007bff;
-                background-color: #f8f9ff;
-            }
-
-            .gift-qty-container {
-                background: #f8f9fa;
-                border-radius: 20px;
-                padding: 2px;
-            }
-
-            .gift-qty-btn {
-                width: 30px;
-                height: 30px;
-                border-radius: 50%;
-                border: none;
-                background: #007bff;
-                color: white;
-                font-size: 12px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-
-            .gift-qty-btn:hover {
-                background: #0056b3;
-                transform: scale(1.1);
-            }
-
-            .gift-qty {
-                border: none;
-                background: transparent;
-                text-align: center;
-                font-weight: bold;
-                width: 40px;
-            }
-
-            .gift-checkbox {
-                transform: scale(1.3);
-                accent-color: #007bff;
-            }
+        }
     </style>
 
 </body>
 
 </html>
+
+<!-- Scripts -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+
+<style>
+    .bg-gradient-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .gift-product {
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+    }
+
+    .gift-product:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .gift-product.selected {
+        border-color: #007bff;
+        background-color: #f8f9ff;
+    }
+
+    .gift-qty-container {
+        background: #f8f9fa;
+        border-radius: 20px;
+        padding: 2px;
+    }
+
+    .gift-qty-btn {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        border: none;
+        background: #007bff;
+        color: white;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .gift-qty-btn:hover {
+        background: #0056b3;
+        transform: scale(1.1);
+    }
+
+    .gift-qty {
+        border: none;
+        background: transparent;
+        text-align: center;
+        font-weight: bold;
+        width: 40px;
+    }
+
+    .gift-checkbox {
+        transform: scale(1.3);
+        accent-color: #007bff;
+    }
+</style>
+
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
     // Individual Category Dropdown Functionality (Like Myntra)
@@ -1454,3 +1462,5 @@
         }
     });
 </script>
+</body>
+</html>

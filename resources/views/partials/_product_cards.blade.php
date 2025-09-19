@@ -21,18 +21,17 @@
             <form method="POST" action="{{ route('cart.ajaxAdd') }}" class="mt-auto add-to-cart-form">
                 @csrf
                 <input type="hidden" name="product_id" value="{{ $product->id }}">
-                @if($stock && $stock->isInStock())
-                <div class="input-group mb-2">
-                    <input type="number" name="quantity" value="1" min="1" class="form-control" style="max-width: 80px;">
-                </div>
-                @endif
                 @if($stock?->isOutOfStock())
                 <button class="btn btn-secondary w-100" disabled>Out of Stock</button>
-                @elseif($stock?->isLowStock())
+                @else
+                <div class="input-group mb-2">
+                    <input type="number" name="quantity" value="1" min="1" max="{{ $stock?->qty ?? 999 }}" class="form-control" style="max-width: 80px;">
+                </div>
+                @if($stock?->isLowStock())
                 <div class="text-danger small">Only {{ $stock->qty }} left in stock!</div>
-                <button type="submit" class="btn btn-primary w-100">Add to Cart</button>
                 @else
                 <div class="text-success small">In Stock</div>
+                @endif
                 <button type="submit" class="btn btn-primary w-100">Add to Cart</button>
                 @endif
             </form>

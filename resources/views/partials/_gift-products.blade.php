@@ -1,10 +1,8 @@
-
 <div class="gift-products-container">
     <div class="text-center mb-4">
         <h6 class="text-muted">✨ <strong>Complete your order with these amazing deals!</strong> ✨</h6>
         <p class="small text-secondary">Select items to add as gifts or treats</p>
     </div>
-
     <div class="row g-3">
         @foreach($giftProducts as $gift)
         <div class="col-md-6">
@@ -57,7 +55,6 @@
         </div>
         @endforeach
     </div>
-
     @if($giftProducts->isEmpty())
     <div class="text-center py-4">
         <i class="fas fa-gift fa-3x text-muted mb-3"></i>
@@ -66,7 +63,6 @@
     </div>
     @endif
 </div>
-
 <script>
 // Auto-select products when quantity changes
 $(document).ready(function() {

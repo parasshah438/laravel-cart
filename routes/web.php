@@ -12,9 +12,20 @@ Route::get('/dashboard', function () {
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 // Product routes
+Route::get('/products/search', [ProductController::class, 'search'])->name('products.search');
 Route::get('/product/{slug}', [ProductController::class, 'showProduct'])->name('product.show');
 Route::get('/recently-viewed', [ProductController::class, 'getRecentlyViewedProducts'])->name('product.recentlyViewed');
 Route::post('/recently-viewed/clear', [ProductController::class, 'clearRecentlyViewed'])->name('recently-viewed.clear')->middleware('auth');
+
+// ================================================================================================
+// 🛍️ SHOP & PRODUCT LISTING ROUTES (Amazon Style)
+// ================================================================================================
+Route::get('/shop', [ProductController::class, 'shop'])->name('shop');
+Route::get('/shop/products', [ProductController::class, 'getProducts'])->name('shop.products'); // AJAX endpoint
+Route::get('/shop/filters', [ProductController::class, 'getFilters'])->name('shop.filters'); // AJAX endpoint
+Route::get('/shop/load-more', [ProductController::class, 'loadMore'])->name('shop.load-more'); // Load more products
+Route::get('/shop/search-suggestions', [ProductController::class, 'getSearchSuggestions'])->name('shop.search-suggestions'); // Search suggestions
+
 //trendingProducts
 Route::get('/trending-products', [ProductController::class, 'trending'])->name('product.trending');
 Route::get('/recommendations', [ProductController::class, 'recommendedProducts'])->name('products.recommended');

@@ -365,5 +365,321 @@ class ProductController extends Controller
         $verified = $product->reviews()->approved()->where('verified_purchase', true)->count();
         return round(($verified / $total) * 100);
     }
+
+    // ================================================================================================
+    // 🛍️ AMAZON-STYLE SHOP & PRODUCT LISTING
+    // ================================================================================================
+
+    /**
+     * Main shop page with filters and products
+     */
+    public function shop(Request $request)
+    {
+        // Get categories for filter sidebar
+        $categories = Category::withCount('products')->get();
+        
+        // Price range for filter
+        $priceRange = [
+            'min' => Product::min('price') ?? 0,
+            'max' => Product::max('price') ?? 1000
+        ];
+        
+        // Brand options (if you have brands)
+        $brands = [];
+        
+        // Rating options
+        $ratings = [5, 4, 3, 2, 1];
+        
+        // Set SEO data
+        $this->setSEO('shop', [
+            'category' => $request->category,
+            'search' => $request->q
+        ]);
+
+        return view('shop.index', compact('categories', 'priceRange', 'brands', 'ratings'));
+    }
+
+    /**
+     * AJAX endpoint for getting filtered products
+     */
+    public function getProducts(Request $request)
+    {
+        // Debug: Log the incoming request parameters
+        \Log::info('Shop filter request:', $request->all());
+        
+        $query = Product::with(['category', 'reviews'])
+            ->where('status', true);
+
+        // ✅ APPLY FILTERS
+        
+        // Category filter
+        if ($request->has('category') && !empty($request->category)) {
+            if (is_array($request->category)) {
+                $query->whereIn('category_id', $request->category);
+            } else {
+                $query->where('category_id', $request->category);
+            }
+        }
+
+        // Price range filter
+        if ($request->has('price_min') && $request->price_min !== null && $request->price_min !== '') {
+            $query->where('price', '>=', $request->price_min);
+        }
+        if ($request->has('price_max') && $request->price_max !== null && $request->price_max !== '') {
+            $query->where('price', '<=', $request->price_max);
+        }
+
+        // Rating filter
+        if ($request->has('rating') && $request->rating) {
+            $query->where('average_rating', '>=', $request->rating);
+        }
+
+        // Search filter
+        if ($request->has('q') && $request->q) {
+            $searchTerm = $request->q;
+            $query->where(function($q) use ($searchTerm) {
+                $q->where('name', 'LIKE', "%{$searchTerm}%")
+                  ->orWhere('description', 'LIKE', "%{$searchTerm}%");
+            });
+        }
+
+        // Note: Removed brand and stock_quantity filters as these columns don't exist in current schema
+
+        // ✅ APPLY SORTING
+        $sortBy = $request->get('sort', 'name_asc');
+        switch ($sortBy) {
+            case 'price_asc':
+                $query->orderBy('price', 'asc');
+                break;
+            case 'price_desc':
+                $query->orderBy('price', 'desc');
+                break;
+            case 'rating_desc':
+                $query->orderBy('average_rating', 'desc');
+                break;
+            case 'newest':
+                $query->latest();
+                break;
+            case 'popularity':
+                $query->orderBy('review_count', 'desc');
+                break;
+            case 'name_asc':
+            default:
+                $query->orderBy('name', 'asc');
+                break;
+        }
+
+        // ✅ PAGINATION
+        $perPage = $request->get('per_page', 12);
+        $products = $query->paginate($perPage);
+
+        // ✅ GET WISHLIST STATUS FOR AUTHENTICATED USERS
+        $wishlistProductIds = collect();
+        if (auth()->check()) {
+            $wishlistProductIds = auth()->user()->wishlist()->pluck('product_id');
+        }
+
+        // ✅ RETURN JSON FOR AJAX
+        if ($request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'html' => view('shop.partials.product-grid', compact('products', 'wishlistProductIds'))->render(),
+                'pagination' => [
+                    'current_page' => $products->currentPage(),
+                    'last_page' => $products->lastPage(),
+                    'total' => $products->total(),
+                    'per_page' => $products->perPage(),
+                    'from' => $products->firstItem(),
+                    'to' => $products->lastItem(),
+                ],
+                'filters_applied' => $this->getAppliedFiltersCount($request),
+                'results_text' => $this->getResultsText($products)
+            ]);
+        }
+
+        return redirect()->route('shop.index');
+    }
+
+    /**
+     * AJAX endpoint for getting filter options
+     */
+    public function getFilters(Request $request)
+    {
+        $categories = Category::withCount('products')->get();
+        
+        $priceRange = [
+            'min' => Product::min('price') ?? 0,
+            'max' => Product::max('price') ?? 1000
+        ];
+        
+        $brands = Product::select('brand')->distinct()->whereNotNull('brand')->pluck('brand');
+
+        return response()->json([
+            'success' => true,
+            'categories' => $categories,
+            'price_range' => $priceRange,
+            'brands' => $brands
+        ]);
+    }
+
+    /**
+     * Helper method to count applied filters
+     */
+    private function getAppliedFiltersCount(Request $request): int
+    {
+        $count = 0;
+        
+        if ($request->has('category') && $request->category) $count++;
+        if ($request->has('price_min') && $request->price_min) $count++;
+        if ($request->has('price_max') && $request->price_max) $count++;
+        if ($request->has('brand') && $request->brand) $count++;
+        if ($request->has('rating') && $request->rating) $count++;
+        if ($request->has('q') && $request->q) $count++;
+        if ($request->has('in_stock') && $request->in_stock) $count++;
+        
+        return $count;
+    }
+
+    /**
+     * Helper method to get results text
+     */
+    private function getResultsText($products): string
+    {
+        $total = $products->total();
+        $from = $products->firstItem();
+        $to = $products->lastItem();
+        
+        if ($total == 0) {
+            return "No products found";
+        }
+        
+        return "Showing {$from}-{$to} of {$total} results";
+    }
+
+    /**
+     * Load more products for AJAX pagination
+     */
+    public function loadMore(Request $request)
+    {
+        $perPage = 12; // Match the default products per page
+        $page = $request->input('page', 1);
+        
+        // Apply the same filters as in getProducts method
+        $query = Product::where('status', true);
+        
+        // Apply filters
+        if ($request->filled('category')) {
+            $query->where('category_id', $request->category);
+        }
+        
+        if ($request->filled('min_price')) {
+            $query->where('price', '>=', $request->min_price);
+        }
+        
+        if ($request->filled('max_price')) {
+            $query->where('price', '<=', $request->max_price);
+        }
+        
+        if ($request->filled('rating')) {
+            $query->where('average_rating', '>=', $request->rating);
+        }
+        
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'LIKE', "%{$search}%")
+                  ->orWhere('description', 'LIKE', "%{$search}%");
+            });
+        }
+        
+        // Get products with pagination
+        $products = $query->with(['stocks', 'reviews'])->paginate($perPage, ['*'], 'page', $page);
+        
+        // Get wishlist product IDs if user is authenticated
+        $wishlistProductIds = collect();
+        if (auth()->check()) {
+            $wishlistProductIds = auth()->user()->wishlists()->pluck('product_id');
+        }
+        
+        // Render the HTML using the existing partial
+        $html = view('shop.partials.product-grid', compact('products', 'wishlistProductIds'))->render();
+        
+        return response()->json([
+            'html' => $html,
+            'hasMorePages' => $products->hasMorePages(),
+            'nextPage' => $products->currentPage() + 1,
+            'total' => $products->total(),
+            'currentCount' => $products->count(),
+            'currentPage' => $products->currentPage()
+        ]);
+    }
+
+    /**
+     * Get search suggestions for autocomplete
+     */
+    public function getSearchSuggestions(Request $request)
+    {
+        $query = $request->input('q', '');
+        
+        if (strlen($query) < 2) {
+            return response()->json([]);
+        }
+
+        $suggestions = [];
+        
+        // Get product name suggestions
+        $products = Product::where('status', true)
+            ->where('name', 'LIKE', "%{$query}%")
+            ->select('name')
+            ->distinct()
+            ->limit(8)
+            ->get();
+
+        foreach ($products as $product) {
+            $suggestions[] = [
+                'type' => 'product',
+                'text' => $product->name,
+                'value' => $product->name,
+                'icon' => 'fas fa-box'
+            ];
+        }
+
+        // Get category suggestions
+        $categories = \App\Models\Category::where('name', 'LIKE', "%{$query}%")
+            ->select('name')
+            ->limit(3)
+            ->get();
+
+        foreach ($categories as $category) {
+            $suggestions[] = [
+                'type' => 'category',
+                'text' => "in " . $category->name,
+                'value' => $category->name,
+                'icon' => 'fas fa-tags'
+            ];
+        }
+
+        // Get brand suggestions if you have brands
+        // You can uncomment this if you add a brands table/field
+        /*
+        $brands = Product::where('status', true)
+            ->where('brand', 'LIKE', "%{$query}%")
+            ->select('brand')
+            ->distinct()
+            ->limit(3)
+            ->get();
+
+        foreach ($brands as $brand) {
+            $suggestions[] = [
+                'type' => 'brand',
+                'text' => "Brand: " . $brand->brand,
+                'value' => $brand->brand,
+                'icon' => 'fas fa-star'
+            ];
+        }
+        */
+
+        return response()->json($suggestions);
+    }
     
 }
