@@ -30,6 +30,12 @@ Route::get('/shop/search-suggestions', [ProductController::class, 'getSearchSugg
 Route::get('/trending-products', [ProductController::class, 'trending'])->name('product.trending');
 Route::get('/recommendations', [ProductController::class, 'recommendedProducts'])->name('products.recommended');
 
+// ================================================================================================
+// 🤖 AI-POWERED SHOPPING ROUTES (Next-Gen E-commerce)
+// ================================================================================================
+Route::get('/ai/recommendations', [App\Http\Controllers\AIController::class, 'personalizedRecommendations'])->name('ai.recommendations');
+Route::get('/ai/api/recommendations', [App\Http\Controllers\AIController::class, 'getRecommendationsApi'])->name('ai.api.recommendations');
+
 
 Route::post('/cart/save-for-later', [CartController::class, 'saveForLater'])->name('cart.saveForLater');
 Route::post('/cart/move-to-cart', [CartController::class, 'moveToCartFromSaved'])->name('cart.moveToCartFromSaved');
