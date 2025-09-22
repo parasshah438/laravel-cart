@@ -1461,6 +1461,120 @@
             $('#giftProductsModal').modal('hide');
         }
     });
+
+    // ================================================================================================
+    // 🔗 PRODUCT COMPARISON FUNCTIONALITY
+    // ================================================================================================
+    
+    // Compare toggle functionality
+    $(document).on('click', '.compare-toggle', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const btn = $(this);
+        const productId = btn.data('product-id');
+        const icon = btn.find('.compare-icon');
+        
+        // Check if already in compare
+        if (icon.hasClass('text-primary')) {
+            // Remove from compare
+            removeFromCompare(productId, btn);
+        } else {
+            // Add to compare
+            addToCompare(productId, btn);
+        }
+    });
+
+    function addToCompare(productId, btn) {
+        $.ajax({
+            url: `/compare/add/${productId}`,
+            type: 'POST',
+            data: {
+                _token: '{{ csrf_token() }}'
+            },
+            beforeSend: function() {
+                btn.prop('disabled', true);
+            },
+            success: function(response) {
+                if (response.success) {
+                    btn.find('.compare-icon').removeClass('text-muted').addClass('text-primary');
+                    btn.attr('title', 'Remove from Compare');
+                    showToast(response.message, true);
+                    updateCompareCount(response.count);
+                } else {
+                    showToast(response.message, false);
+                }
+            },
+            error: function(xhr) {
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    showToast(xhr.responseJSON.message, false);
+                } else {
+                    showToast('Error adding to comparison', false);
+                }
+            },
+            complete: function() {
+                btn.prop('disabled', false);
+            }
+        });
+    }
+
+    function removeFromCompare(productId, btn) {
+        $.ajax({
+            url: `/compare/remove/${productId}`,
+            type: 'DELETE',
+            data: {
+                _token: '{{ csrf_token() }}'
+            },
+            beforeSend: function() {
+                btn.prop('disabled', true);
+            },
+            success: function(response) {
+                if (response.success) {
+                    btn.find('.compare-icon').removeClass('text-primary').addClass('text-muted');
+                    btn.attr('title', 'Add to Compare');
+                    showToast(response.message, true);
+                    updateCompareCount(response.count);
+                } else {
+                    showToast(response.message, false);
+                }
+            },
+            error: function() {
+                showToast('Error removing from comparison', false);
+            },
+            complete: function() {
+                btn.prop('disabled', false);
+            }
+        });
+    }
+
+    function updateCompareCount(count) {
+        // Update compare count in navbar if exists
+        const compareCountElement = $('.compare-count');
+        if (compareCountElement.length) {
+            compareCountElement.text(count);
+            if (count > 0) {
+                compareCountElement.show();
+            } else {
+                compareCountElement.hide();
+            }
+        }
+    }
+
+    // Load compare states on page load
+    function loadCompareStates() {
+        $('.compare-toggle').each(function() {
+            const btn = $(this);
+            const productId = btn.data('product-id');
+            
+            // You can add an endpoint to check if product is in compare
+            // For now, we'll assume it's not in compare on page load
+        });
+    }
+
+    // Initialize compare states
+    $(document).ready(function() {
+        loadCompareStates();
+    });
 </script>
 </body>
 </html>

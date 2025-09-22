@@ -2,6 +2,7 @@
 @php $stock = $product->stocks->first(); @endphp
 <div class="col-12 col-sm-6 col-md-4 col-lg-3">
     <div class="card h-100 shadow-sm position-relative">
+        <!-- Wishlist Button -->
         <button class="btn btn-sm position-absolute top-0 end-0 m-2 {{ auth()->guest() ? 'guest-wishlist' : 'wishlist-toggle' }}"
             data-product-id="{{ $product->id }}"
             style="background-color: white; border: none; z-index: 10;"
@@ -10,6 +11,15 @@
                 {{ auth()->check() && $wishlistProductIds->contains($product->id) ? '❤️' : '🤍' }}
             </span>
         </button>
+        
+        <!-- Compare Button -->
+        <button class="btn btn-sm position-absolute compare-toggle"
+            data-product-id="{{ $product->id }}"
+            style="background-color: white; border: none; z-index: 10; top: 10px; left: 10px;"
+            title="Add to Compare">
+            <i class="fas fa-balance-scale compare-icon text-muted"></i>
+        </button>
+        
         <a href="{{ route('product.show', $product->slug) }}" class="text-decoration-none text-dark">
             <img src="{{ $product->image }}" class="card-img-top" alt="{{ $product->name }}" style="height: 180px; object-fit: cover;">
         </a>

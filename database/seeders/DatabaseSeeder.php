@@ -28,10 +28,10 @@ class DatabaseSeeder extends Seeder
         ]);
 
         //PRODUCTION SEEDER
-        //$this->call(ProductSeeder::class);
-        //$this->call(CategorySeeder::class);
-        //$this->call(CouponSeeder::class);
+        $this->call(ProductSeeder::class);
+        $this->call(CategorySeeder::class);
+        $this->call(ProfessionalCouponsSeeder::class);
         $this->call(WorldDataSeeder::class);
-        //$this->call(SliderSeeder::class);
+        $this->call(SliderSeeder::class);
     }
 }

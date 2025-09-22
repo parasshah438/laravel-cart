@@ -144,6 +144,21 @@
             margin-right: 1rem;
             color: white;
         }
+
+        .step-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1rem;
+            margin-right: 1rem;
+            flex-shrink: 0;
+        }
         
         .fade-in {
             animation: fadeInUp 0.8s ease-out;
@@ -305,8 +320,8 @@
                     <div class="row g-3 text-start">
                         <div class="col-md-4">
                             <div class="d-flex align-items-start">
-                                <div class="feature-icon me-3" style="width: 35px; height: 35px; font-size: 0.9rem;">
-                                    <span class="fw-bold">1</span>
+                                <div class="step-icon">
+                                    <span>1</span>
                                 </div>
                                 <div>
                                     <h6 class="mb-1">Order Processing</h6>
@@ -316,8 +331,8 @@
                         </div>
                         <div class="col-md-4">
                             <div class="d-flex align-items-start">
-                                <div class="feature-icon me-3" style="width: 35px; height: 35px; font-size: 0.9rem;">
-                                    <span class="fw-bold">2</span>
+                                <div class="step-icon">
+                                    <span>2</span>
                                 </div>
                                 <div>
                                     <h6 class="mb-1">Shipping</h6>
@@ -327,8 +342,8 @@
                         </div>
                         <div class="col-md-4">
                             <div class="d-flex align-items-start">
-                                <div class="feature-icon me-3" style="width: 35px; height: 35px; font-size: 0.9rem;">
-                                    <span class="fw-bold">3</span>
+                                <div class="step-icon">
+                                    <span>3</span>
                                 </div>
                                 <div>
                                     <h6 class="mb-1">Delivery</h6>

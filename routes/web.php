@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\{ProfileController, CartController, WishlistController, FrontendController, ProductController, CheckoutController, AddressController, CategoryController, ReviewController};
+use App\Http\Controllers\{ProfileController, CartController, WishlistController, FrontendController, ProductController, CheckoutController, AddressController, CategoryController, ReviewController, CompareController, SupportController, WishlistShareController};
 
 
 Route::get('/', [FrontendController::class, 'index'])->name('front.index');
@@ -87,10 +87,6 @@ Route::prefix('api')->group(function() {
     Route::get('/load-address/{id}', [AddressController::class, 'apiShow']);
 });
 
-// ================================================================================================
-// 📝 AUTHENTICATED ROUTES
-// ================================================================================================
-
 Route::middleware(['auth'])->group(function () {
     // Order Details page
     Route::get('/order/{order}', [\App\Http\Controllers\CheckoutController::class, 'orderDetails'])->name('order.details');
@@ -108,9 +104,14 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/wishlist/clear', [WishlistController::class, 'clear'])->name('wishlist.clear');
     Route::post('/cart/move-to-wishlist', [CartController::class, 'moveToWishlist'])->name('cart.moveToWishlist');
 
-    // ================================================================================================
-    // 📝 REVIEWS & RATINGS SYSTEM (Authenticated Routes)
-    // ================================================================================================
+    //WISHLIST SHARING (Social Features)
+    Route::get('/wishlist/share', [WishlistShareController::class, 'create'])->name('wishlist.share.create');
+    Route::post('/wishlist/share', [WishlistShareController::class, 'store'])->name('wishlist.share.store');
+    Route::get('/wishlist/shared', [WishlistShareController::class, 'index'])->name('wishlist.shared.index');
+    Route::delete('/wishlist/share/{share}', [WishlistShareController::class, 'destroy'])->name('wishlist.share.destroy');
+    Route::post('/wishlist/share/{share}/toggle-visibility', [WishlistShareController::class, 'toggleVisibility'])->name('wishlist.share.toggleVisibility');
+    Route::post('/wishlist/share/{share}/extend', [WishlistShareController::class, 'extend'])->name('wishlist.share.extend');
+
     // Write & manage reviews
     Route::post('/product/{product}/review', [ReviewController::class, 'store'])->name('review.store');
     Route::get('/review/{review}/edit', [ReviewController::class, 'edit'])->name('review.edit');
@@ -154,6 +155,17 @@ Route::middleware(['auth'])->group(function () {
 });
 
 // ================================================================================================
+// ⚖️ PRODUCT COMPARISON ROUTES (Amazon Style)
+// ================================================================================================
+Route::prefix('compare')->name('compare.')->group(function() {
+    Route::get('/', [CompareController::class, 'index'])->name('index');
+    Route::post('/add/{product}', [CompareController::class, 'add'])->name('add');
+    Route::delete('/remove/{product}', [CompareController::class, 'remove'])->name('remove');
+    Route::delete('/clear', [CompareController::class, 'clear'])->name('clear');
+    Route::get('/count', [CompareController::class, 'count'])->name('count');
+});
+
+// ================================================================================================
 // 🔧 ADMIN ROUTES (Amazon-Style Review Management)
 // ================================================================================================
 Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () {
@@ -166,5 +178,56 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
 
 // Include test routes for Amazon review system (remove in production)
 include __DIR__ . '/test-reviews.php';
+
+// ================================================================================================
+// 🔗 WISHLIST SHARING (Public Routes)
+// ================================================================================================
+Route::get('/shared-wishlist/{token}', [WishlistShareController::class, 'view'])->name('wishlist.shared.view');
+
+// ================================================================================================
+// ❓ CUSTOMER SUPPORT SYSTEM (Professional Support)
+// ================================================================================================
+Route::middleware('auth')->group(function() {
+    // Support dashboard
+    Route::get('/support', [SupportController::class, 'index'])->name('support.index');
+    
+    // Support tickets
+    Route::get('/support/tickets', [SupportController::class, 'tickets'])->name('support.tickets');
+    Route::get('/support/tickets/create', [SupportController::class, 'create'])->name('support.create');
+    Route::post('/support/tickets', [SupportController::class, 'store'])->name('support.store');
+    Route::get('/support/tickets/{ticket}', [SupportController::class, 'show'])->name('support.show');
+    Route::post('/support/tickets/{ticket}/reply', [SupportController::class, 'reply'])->name('support.reply');
+    Route::post('/support/tickets/{ticket}/close', [SupportController::class, 'close'])->name('support.close');
+    
+    //Live chat
+    Route::get('/support/chat', [SupportController::class, 'chat'])->name('support.chat');
+    Route::post('/support/chat/start', [SupportController::class, 'startChat'])->name('support.chat.start');
+    Route::post('/support/chat/send', [SupportController::class, 'sendMessage'])->name('support.chat.send');
+    Route::post('/support/chat/{chat}/end', [SupportController::class, 'endChat'])->name('support.chat.end');
+    
+    // Debug route for testing chat messages
+    Route::post('/support/chat/test', function(Request $request) {
+        return response()->json([
+            'received_data' => $request->all(),
+            'has_message' => $request->has('message'),
+            'has_chat_id' => $request->has('chat_id'),
+            'message_value' => $request->get('message'),
+            'chat_id_value' => $request->get('chat_id')
+        ]);
+    })->name('support.chat.test');
+});
+
+// Public support routes
+Route::get('/help', [SupportController::class, 'help'])->name('help');
+Route::get('/faq', [SupportController::class, 'faq'])->name('faq');
+
+// Legacy routes for backward compatibility
+Route::get('/contact-us', [SupportController::class, 'contact'])->name('contact');
+Route::post('/contact-us', [SupportController::class, 'submitContact'])->name('contact.submit');
+
+// ================================================================================================
+// 🔧 ADMIN SUPPORT ROUTES (Include admin.php)
+// ================================================================================================
+require __DIR__.'/admin.php';
 
 require __DIR__.'/auth.php';

@@ -5,6 +5,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -14,9 +15,19 @@
 <body>
     <div class="container py-4">
         <h3 class="mb-4">Your Wishlist</h3>
-        <div class="mb-3 d-flex justify-content-end gap-2">
-            <button id="btn-move-all" class="btn btn-sm btn-success" type="button">Move All to Cart</button>
-            <button id="btn-clear-wishlist" class="btn btn-sm btn-danger" type="button">Clear Wishlist</button>
+        <div class="mb-3 d-flex justify-content-between align-items-center">
+            <div>
+                <a href="{{ route('wishlist.share.create') }}" class="btn btn-sm btn-primary">
+                    <i class="fas fa-share-alt me-1"></i>Share Wishlist
+                </a>
+                <a href="{{ route('wishlist.shared.index') }}" class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-eye me-1"></i>My Shares
+                </a>
+            </div>
+            <div class="d-flex gap-2">
+                <button id="btn-move-all" class="btn btn-sm btn-success" type="button">Move All to Cart</button>
+                <button id="btn-clear-wishlist" class="btn btn-sm btn-danger" type="button">Clear Wishlist</button>
+            </div>
         </div>
         @if($wishlistItems->isEmpty())
         <div class="alert alert-info">You have no items in your wishlist.</div>

@@ -18,6 +18,19 @@
                     <x-nav-link :href="route('shop')" :active="request()->routeIs('shop')">
                         {{ __('Shop') }}
                     </x-nav-link>
+                    <x-nav-link :href="route('compare.index')" :active="request()->routeIs('compare.index')">
+                        <div class="flex items-center space-x-1">
+                            <i class="fas fa-balance-scale"></i>
+                            <span>{{ __('Compare') }}</span>
+                            <span class="compare-count bg-red-500 text-white text-xs rounded-full px-2 py-1 ml-1 hidden">0</span>
+                        </div>
+                    </x-nav-link>
+                    <x-nav-link :href="route('contact')" :active="request()->routeIs('contact')">
+                        <div class="flex items-center space-x-1">
+                            <i class="fas fa-envelope"></i>
+                            <span>{{ __('Contact') }}</span>
+                        </div>
+                    </x-nav-link>
                 </div>
             </div>
 
@@ -75,6 +88,19 @@
             </x-responsive-nav-link>
             <x-responsive-nav-link :href="route('shop')" :active="request()->routeIs('shop')">
                 {{ __('Shop') }}
+            </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('compare.index')" :active="request()->routeIs('compare.index')">
+                <div class="flex items-center space-x-1">
+                    <i class="fas fa-balance-scale"></i>
+                    <span>{{ __('Compare') }}</span>
+                    <span class="compare-count bg-red-500 text-white text-xs rounded-full px-2 py-1 ml-1 hidden">0</span>
+                </div>
+            </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('contact')" :active="request()->routeIs('contact')">
+                <div class="flex items-center space-x-1">
+                    <i class="fas fa-envelope"></i>
+                    <span>{{ __('Contact') }}</span>
+                </div>
             </x-responsive-nav-link>
         </div>
 

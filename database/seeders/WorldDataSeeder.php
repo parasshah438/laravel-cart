@@ -15,6 +15,7 @@ class WorldDataSeeder extends Seeder
 {
     /**
      * Run the database seeds.
+     * php -d memory_limit=1G artisan db:seed --class=WorldDataSeeder
      */
     public function run(): void
     {
