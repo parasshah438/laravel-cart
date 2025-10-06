@@ -274,7 +274,7 @@
                                 </div>
                                 <div class="text-start">
                                     <small class="text-muted d-block">Order Number</small>
-                                    <strong>#{{ strtoupper(uniqid()) }}</strong>
+                                    <strong>#{{ $order ? $order->order_number : strtoupper(uniqid()) }}</strong>
                                 </div>
                             </div>
                         </div>
@@ -285,7 +285,7 @@
                                 </div>
                                 <div class="text-start">
                                     <small class="text-muted d-block">Order Date</small>
-                                    <strong>{{ now()->format('M d, Y') }}</strong>
+                                    <strong>{{ $order ? $order->created_at->format('M d, Y') : now()->format('M d, Y') }}</strong>
                                 </div>
                             </div>
                         </div>
@@ -296,7 +296,7 @@
                                 </div>
                                 <div class="text-start">
                                     <small class="text-muted d-block">Estimated Delivery</small>
-                                    <strong>{{ now()->addDays(5)->format('M d, Y') }}</strong>
+                                    <strong>{{ $order ? $order->created_at->addDays(5)->format('M d, Y') : now()->addDays(5)->format('M d, Y') }}</strong>
                                 </div>
                             </div>
                         </div>
@@ -312,6 +312,22 @@
                             </div>
                         </div>
                     </div>
+                    
+                    @if($order)
+                        <!-- Order Summary -->
+                        <div class="mt-4 p-3 bg-white rounded-3 border">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span><strong>Order Total:</strong></span>
+                                <span class="h5 mb-0 text-primary">₹{{ number_format($order->grand_total, 2) }}</span>
+                            </div>
+                            @if($order->discount > 0)
+                                <div class="d-flex justify-content-between align-items-center text-success mt-1">
+                                    <small>You saved:</small>
+                                    <small>₹{{ number_format($order->discount, 2) }}</small>
+                                </div>
+                            @endif
+                        </div>
+                    @endif
                 </div>
                 
                 <!-- What's Next Section -->
@@ -364,12 +380,36 @@
                             </a>
                         </div>
                         <div class="col-md-6">
-                            <a href="#" class="btn btn-outline-secondary w-100">
-                                <i class="bi bi-box-seam me-2"></i>
-                                Track Your Order
-                            </a>
+                            @if($order && auth()->check())
+                                <a href="{{ route('order.track', $order) }}" class="btn btn-outline-secondary w-100">
+                                    <i class="bi bi-box-seam me-2"></i>
+                                    Track Your Order
+                                </a>
+                            @else
+                                <a href="{{ route('orders.index') }}" class="btn btn-outline-secondary w-100">
+                                    <i class="bi bi-box-seam me-2"></i>
+                                    View All Orders
+                                </a>
+                            @endif
                         </div>
                     </div>
+                    
+                    @if($order && auth()->check())
+                        <div class="row g-3 mt-2">
+                            <div class="col-md-6">
+                                <a href="{{ route('order.details', $order) }}" class="btn btn-outline-primary w-100">
+                                    <i class="bi bi-eye me-2"></i>
+                                    View Order Details
+                                </a>
+                            </div>
+                            <div class="col-md-6">
+                                <a href="{{ route('orders.index') }}" class="btn btn-outline-info w-100">
+                                    <i class="bi bi-list-ul me-2"></i>
+                                    All My Orders
+                                </a>
+                            </div>
+                        </div>
+                    @endif
                 </div>
                 
                 <!-- Support Section -->
@@ -379,15 +419,15 @@
                         If you have any questions about your order, feel free to contact our support team.
                     </p>
                     <div class="d-flex justify-content-center gap-3">
-                        <a href="#" class="text-decoration-none">
+                        <a href="{{ route('support.index') }}" class="text-decoration-none">
                             <i class="bi bi-telephone me-1"></i>
                             Call Support
                         </a>
-                        <a href="#" class="text-decoration-none">
+                        <a href="{{ route('support.chat') }}" class="text-decoration-none">
                             <i class="bi bi-chat-dots me-1"></i>
                             Live Chat
                         </a>
-                        <a href="#" class="text-decoration-none">
+                        <a href="{{ route('contact') }}" class="text-decoration-none">
                             <i class="bi bi-envelope me-1"></i>
                             Email Us
                         </a>

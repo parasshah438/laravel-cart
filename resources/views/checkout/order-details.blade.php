@@ -262,8 +262,7 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ route('cart.index') ?? '#' }}".369
-                        
+                        <a class="nav-link" href="{{ route('cart.view') ?? '#' }}">
                             <i class="fas fa-shopping-cart me-1"></i>Cart
                         </a>
                     </li>

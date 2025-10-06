@@ -94,8 +94,15 @@ Route::prefix('api')->group(function() {
 });
 
 Route::middleware(['auth'])->group(function () {
-    // Order Details page
+    // Order Management System
+    Route::get('/orders', [\App\Http\Controllers\CheckoutController::class, 'orderHistory'])->name('orders.index');
     Route::get('/order/{order}', [\App\Http\Controllers\CheckoutController::class, 'orderDetails'])->name('order.details');
+    Route::get('/order/{order}/track', [\App\Http\Controllers\CheckoutController::class, 'trackOrder'])->name('order.track');
+    Route::post('/order/{order}/cancel', [\App\Http\Controllers\CheckoutController::class, 'cancelOrder'])->name('order.cancel');
+    Route::post('/order/{order}/reorder', [\App\Http\Controllers\CheckoutController::class, 'reorder'])->name('order.reorder');
+
+    // Admin order status updates (temporary for testing)
+    Route::post('/admin/order/{order}/update-status', [\App\Http\Controllers\CheckoutController::class, 'updateOrderStatus'])->name('admin.order.updateStatus');
 
     //Profile
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -144,9 +151,7 @@ Route::middleware(['auth'])->group(function () {
         // Place Order
         Route::post('/checkout/place-order', [CheckoutController::class, 'placeOrder'])->name('checkout.placeOrder');
         // Thank You page
-        Route::get('/checkout/thank-you', function() {
-            return view('checkout.thankyou');
-        })->name('checkout.thankyou');
+        Route::get('/checkout/thank-you/{order?}', [CheckoutController::class, 'thankYou'])->name('checkout.thankyou');
         
         // ✅ TEST EMAIL ROUTE (Remove in production)
         Route::get('/test-order-email', function() {

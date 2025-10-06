@@ -33,5 +33,8 @@ class DatabaseSeeder extends Seeder
         $this->call(ProfessionalCouponsSeeder::class);
         $this->call(WorldDataSeeder::class);
         $this->call(SliderSeeder::class);
+        
+        // Test orders for testing order tracking functionality
+        $this->call(OrderTestSeeder::class);
     }
 }

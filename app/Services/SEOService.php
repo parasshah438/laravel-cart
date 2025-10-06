@@ -120,11 +120,11 @@ class SEOService
             'title' => 'Shopping Cart - ' . config('app.name'),
             'description' => 'Review your items and proceed to checkout. Secure payment and fast shipping guaranteed.',
             'keywords' => 'shopping cart, checkout, secure payment',
-            'canonical' => route('cart.index'),
+            'canonical' => route('cart.view'),
             'og_title' => 'Shopping Cart',
             'og_description' => 'Review your items and proceed to checkout.',
             'og_image' => asset('images/cart-og.jpg'),
-            'og_url' => route('cart.index'),
+            'og_url' => route('cart.view'),
             'twitter_card' => 'summary'
         ];
     }

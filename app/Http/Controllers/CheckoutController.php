@@ -7,6 +7,7 @@ use App\Services\CartService; // Assuming you have a CartService to handle cart 
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
 use App\Models\Country; // Assuming you have a Country model to fetch countries
+use App\Models\Order;
 use App\Mail\OrderConfirmation;
 use Illuminate\Support\Facades\Mail;
 
@@ -146,7 +147,8 @@ class CheckoutController extends Controller
             // Clear cart and remove applied coupon
             $this->cart->clear();
 
-            return redirect()->route('checkout.thankyou')->with('success', 'Order placed successfully! Check your email for order confirmation.');
+            return redirect()->route('checkout.thankyou', ['order' => $order->id])
+                ->with('success', 'Order placed successfully! Check your email for order confirmation.');
         }
 
         /**
@@ -154,7 +156,114 @@ class CheckoutController extends Controller
      */
     public function orderDetails($orderId)
     {
-        $order = auth()->user()->orders()->with('items.product')->findOrFail($orderId);
+        $order = auth()->user()->orders()->with(['items.product', 'address'])->findOrFail($orderId);
         return view('checkout.order-details', compact('order'));
-    }    
+    }
+
+    /**
+     * Thank you page after order placement
+     */
+    public function thankYou($orderId = null)
+    {
+        $order = null;
+        
+        if ($orderId && auth()->check()) {
+            $order = auth()->user()->orders()->with(['items.product', 'address'])->find($orderId);
+        }
+        
+        return view('checkout.thankyou', compact('order'));
+    }
+
+    /**
+     * Show order history/listing page
+     */
+    public function orderHistory(Request $request)
+    {
+        $user = auth()->user();
+        
+        $query = $user->orders()->with(['items.product', 'address'])
+                     ->orderBy('created_at', 'desc');
+        
+        // Filter by status if provided
+        if ($request->has('status') && $request->status !== 'all') {
+            $query->where('status', $request->status);
+        }
+        
+        // Search by order number
+        if ($request->has('search') && $request->search) {
+            $query->where('order_number', 'like', '%' . $request->search . '%');
+        }
+        
+        $orders = $query->paginate(10);
+        $orderStatuses = ['all', 'pending', 'confirmed', 'shipped', 'delivered', 'cancelled'];
+        
+        return view('orders.index', compact('orders', 'orderStatuses'));
+    }
+
+    /**
+     * Track specific order with detailed timeline
+     */
+    public function trackOrder($orderId)
+    {
+        $order = auth()->user()->orders()->with(['items.product', 'address'])->findOrFail($orderId);
+        
+        // Get tracking timeline from the model
+        $timeline = $order->getTrackingSteps();
+        
+        return view('orders.track', compact('order', 'timeline'));
+    }
+
+    /**
+     * Cancel an order (if cancellable)
+     */
+    public function cancelOrder($orderId)
+    {
+        $order = auth()->user()->orders()->findOrFail($orderId);
+        
+        // Check if order can be cancelled
+        if (in_array($order->status, ['delivered', 'cancelled', 'shipped'])) {
+            return back()->with('error', 'Order cannot be cancelled at this stage.');
+        }
+        
+        $order->update(['status' => 'cancelled']);
+        
+        return back()->with('success', 'Order has been cancelled successfully.');
+    }
+
+    /**
+     * Reorder - add all items from previous order to cart
+     */
+    public function reorder($orderId)
+    {
+        $order = auth()->user()->orders()->with('items.product')->findOrFail($orderId);
+        
+        $addedItems = 0;
+        foreach ($order->items as $item) {
+            if ($item->product && $item->product->stock > 0) {
+                $this->cart->add($item->product, $item->quantity);
+                $addedItems++;
+            }
+        }
+        
+        if ($addedItems > 0) {
+            return redirect()->route('cart.view')->with('success', "{$addedItems} items added to cart from your previous order.");
+        } else {
+            return back()->with('error', 'No items could be added to cart. Products may be out of stock.');
+        }
+    }
+
+    /**
+     * Update order status (admin functionality for testing)
+     */
+    public function updateOrderStatus(Request $request, $orderId)
+    {
+        $request->validate([
+            'status' => 'required|in:pending,confirmed,shipped,delivered,cancelled'
+        ]);
+
+        $order = Order::findOrFail($orderId);
+        $order->update(['status' => $request->status]);
+
+        return back()->with('success', 'Order status updated successfully to ' . ucfirst($request->status));
+    }
 }

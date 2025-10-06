@@ -18,6 +18,12 @@
                     <x-nav-link :href="route('shop')" :active="request()->routeIs('shop')">
                         {{ __('Shop') }}
                     </x-nav-link>
+                    <x-nav-link :href="route('orders.index')" :active="request()->routeIs('orders.*')">
+                        <div class="flex items-center space-x-1">
+                            <i class="fas fa-receipt"></i>
+                            <span>{{ __('My Orders') }}</span>
+                        </div>
+                    </x-nav-link>
                     <x-nav-link :href="route('compare.index')" :active="request()->routeIs('compare.index')">
                         <div class="flex items-center space-x-1">
                             <i class="fas fa-balance-scale"></i>
@@ -88,6 +94,12 @@
             </x-responsive-nav-link>
             <x-responsive-nav-link :href="route('shop')" :active="request()->routeIs('shop')">
                 {{ __('Shop') }}
+            </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('orders.index')" :active="request()->routeIs('orders.*')">
+                <div class="flex items-center space-x-1">
+                    <i class="fas fa-receipt"></i>
+                    <span>{{ __('My Orders') }}</span>
+                </div>
             </x-responsive-nav-link>
             <x-responsive-nav-link :href="route('compare.index')" :active="request()->routeIs('compare.index')">
                 <div class="flex items-center space-x-1">
