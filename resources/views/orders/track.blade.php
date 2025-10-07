@@ -10,7 +10,174 @@
         :root {
             --primary-color: #2563eb;
             --success-color: #059669;
-            --warning-color: #d97706;
+            --        <div class="toast-container position-fixed bottom-0 end-0 p-3">
+            <div class="toast show" role="alert">
+                <div class="toast-header bg-danger text-white">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    <strong class="me-auto">Error</strong>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+                </div>
+                <div class="toast-body">{{ session('error') }}</div>
+            </div>
+        </div>
+    @endif
+
+    <!-- Return Modal -->
+    <div class="modal fade" id="returnModal" tabindex="-1" aria-labelledby="returnModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <form method="POST" action="{{ route('order.return', $order) }}">
+                    @csrf
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="returnModalLabel">Return Order Items</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Return Policy -->
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Return Policy:</strong> Items can be returned within 30 days of delivery. 
+                            Items must be in original condition with tags attached.
+                        </div>
+
+                        <!-- Return Reason -->
+                        <div class="mb-3">
+                            <label for="return_reason" class="form-label">Reason for Return <span class="text-danger">*</span></label>
+                            <select class="form-select" name="return_reason" id="return_reason" required>
+                                <option value="">Select a reason</option>
+                                <option value="defective">Defective Product</option>
+                                <option value="wrong_item">Wrong Item Received</option>
+                                <option value="not_as_described">Not as Described</option>
+                                <option value="size_issue">Size Issue</option>
+                                <option value="changed_mind">Changed Mind</option>
+                                <option value="damaged_shipping">Damaged During Shipping</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+
+                        <!-- Additional Comments -->
+                        <div class="mb-3">
+                            <label for="return_comments" class="form-label">Additional Comments</label>
+                            <textarea class="form-control" name="return_comments" id="return_comments" rows="3" 
+                                      placeholder="Please provide additional details about your return..."></textarea>
+                        </div>
+
+                        <!-- Items to Return -->
+                        <div class="mb-3">
+                            <label class="form-label">Select Items to Return <span class="text-danger">*</span></label>
+                            <div class="border rounded p-3">
+                                @foreach($order->orderItems as $item)
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" name="return_items[]" 
+                                               value="{{ $item->id }}" id="return_item_{{ $item->id }}">
+                                        <label class="form-check-label d-flex justify-content-between align-items-center w-100" 
+                                               for="return_item_{{ $item->id }}">
+                                            <div>
+                                                <strong>{{ $item->product->name }}</strong>
+                                                <br>
+                                                <small class="text-muted">Quantity: {{ $item->quantity }} | Price: ${{ number_format($item->price, 2) }}</small>
+                                            </div>
+                                            <span class="fw-bold">${{ number_format($item->price * $item->quantity, 2) }}</span>
+                                        </label>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+
+                        <!-- Refund Method -->
+                        <div class="mb-3">
+                            <label for="refund_method" class="form-label">Preferred Refund Method</label>
+                            <select class="form-select" name="refund_method" id="refund_method">
+                                <option value="original_payment">Original Payment Method</option>
+                                <option value="store_credit">Store Credit</option>
+                                <option value="bank_transfer">Bank Transfer</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-warning">Submit Return Request</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Exchange Modal -->
+    <div class="modal fade" id="exchangeModal" tabindex="-1" aria-labelledby="exchangeModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <form method="POST" action="{{ route('order.exchange', $order) }}">
+                    @csrf
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="exchangeModalLabel">Exchange Order Items</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Exchange Policy -->
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Exchange Policy:</strong> Items can be exchanged within 15 days of delivery. 
+                            Exchanges are subject to availability.
+                        </div>
+
+                        <!-- Exchange Reason -->
+                        <div class="mb-3">
+                            <label for="exchange_reason" class="form-label">Reason for Exchange <span class="text-danger">*</span></label>
+                            <select class="form-select" name="exchange_reason" id="exchange_reason" required>
+                                <option value="">Select a reason</option>
+                                <option value="size_issue">Size Issue</option>
+                                <option value="color_preference">Color Preference</option>
+                                <option value="defective">Defective Product</option>
+                                <option value="wrong_item">Wrong Item Received</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+
+                        <!-- Items to Exchange -->
+                        <div class="mb-3">
+                            <label class="form-label">Select Items to Exchange <span class="text-danger">*</span></label>
+                            <div class="border rounded p-3">
+                                @foreach($order->orderItems as $item)
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" name="exchange_items[]" 
+                                               value="{{ $item->id }}" id="exchange_item_{{ $item->id }}">
+                                        <label class="form-check-label d-flex justify-content-between align-items-center w-100" 
+                                               for="exchange_item_{{ $item->id }}">
+                                            <div>
+                                                <strong>{{ $item->product->name }}</strong>
+                                                <br>
+                                                <small class="text-muted">Quantity: {{ $item->quantity }} | Price: ${{ number_format($item->price, 2) }}</small>
+                                            </div>
+                                            <span class="fw-bold">${{ number_format($item->price * $item->quantity, 2) }}</span>
+                                        </label>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+
+                        <!-- Exchange Preferences -->
+                        <div class="mb-3">
+                            <label for="exchange_preferences" class="form-label">Exchange Preferences</label>
+                            <textarea class="form-control" name="exchange_preferences" id="exchange_preferences" rows="3" 
+                                      placeholder="Please specify your preferred size, color, or alternative product..."></textarea>
+                        </div>
+
+                        <!-- Additional Comments -->
+                        <div class="mb-3">
+                            <label for="exchange_comments" class="form-label">Additional Comments</label>
+                            <textarea class="form-control" name="exchange_comments" id="exchange_comments" rows="2" 
+                                      placeholder="Any additional information..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-info">Submit Exchange Request</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>or: #d97706;
             --danger-color: #dc2626;
             --info-color: #0891b2;
             --light-bg: #f8fafc;
@@ -377,30 +544,50 @@
                 </div>
 
                 <!-- Order Actions -->
-                <div class="d-flex gap-2 mt-3 animate-fade-in">
-                    <a href="{{ route('order.details', $order) }}" class="btn btn-outline-primary btn-custom">
-                        <i class="fas fa-eye me-1"></i>View Full Details
-                    </a>
+                <div class="animate-fade-in">
+                    <!-- Primary Actions Row -->
+                    <div class="d-flex gap-2 mt-3 flex-wrap">
+                        <a href="{{ route('order.details', $order) }}" class="btn btn-outline-primary btn-custom">
+                            <i class="fas fa-eye me-1"></i>View Full Details
+                        </a>
+                        
+                        <a href="{{ route('order.invoice', $order) }}" class="btn btn-outline-info btn-custom" target="_blank">
+                            <i class="fas fa-file-invoice me-1"></i>Invoice
+                        </a>
+                        
+                        <a href="{{ route('order.receipt', $order) }}" class="btn btn-outline-info btn-custom" target="_blank">
+                            <i class="fas fa-receipt me-1"></i>Receipt
+                        </a>
+                    </div>
                     
-                    @if(in_array($order->status, ['pending', 'confirmed']))
-                        <form method="POST" action="{{ route('order.cancel', $order) }}" 
-                              class="d-inline"
-                              onsubmit="return confirm('Are you sure you want to cancel this order?')">
-                            @csrf
-                            <button type="submit" class="btn btn-outline-danger btn-custom">
-                                <i class="fas fa-times me-1"></i>Cancel Order
+                    <!-- Order Management Actions -->
+                    <div class="d-flex gap-2 mt-2 flex-wrap">
+                        @if($order->status === 'delivered')
+                            <form method="POST" action="{{ route('order.reorder', $order) }}" class="d-inline">
+                                @csrf
+                                <button type="submit" class="btn btn-success btn-custom">
+                                    <i class="fas fa-redo me-1"></i>Reorder
+                                </button>
+                            </form>
+                            
+                            <button type="button" class="btn btn-outline-warning btn-custom" data-bs-toggle="modal" data-bs-target="#returnModal">
+                                <i class="fas fa-undo me-1"></i>Return
                             </button>
-                        </form>
-                    @endif
-                    
-                    @if($order->status === 'delivered')
-                        <form method="POST" action="{{ route('order.reorder', $order) }}" class="d-inline">
-                            @csrf
-                            <button type="submit" class="btn btn-success btn-custom">
-                                <i class="fas fa-redo me-1"></i>Reorder
+                            
+                            <button type="button" class="btn btn-outline-secondary btn-custom" data-bs-toggle="modal" data-bs-target="#exchangeModal">
+                                <i class="fas fa-exchange-alt me-1"></i>Exchange
                             </button>
-                        </form>
-                    @endif
+                        @elseif(in_array($order->status, ['pending', 'confirmed']))
+                            <form method="POST" action="{{ route('order.cancel', $order) }}" 
+                                  class="d-inline"
+                                  onsubmit="return confirm('Are you sure you want to cancel this order?')">
+                                @csrf
+                                <button type="submit" class="btn btn-outline-danger btn-custom">
+                                    <i class="fas fa-times me-1"></i>Cancel Order
+                                </button>
+                            </form>
+                        @endif
+                    </div>
                 </div>
 
                 <!-- Admin Status Update (for testing) -->

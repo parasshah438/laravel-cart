@@ -266,4 +266,96 @@ class CheckoutController extends Controller
 
         return back()->with('success', 'Order status updated successfully to ' . ucfirst($request->status));
     }
+
+    /**
+     * Process order return request
+     */
+    public function returnOrder(Request $request, $orderId)
+    {
+        $request->validate([
+            'reason' => 'required|string|max:500',
+            'items' => 'array',
+            'items.*' => 'exists:order_items,id'
+        ]);
+
+        $order = auth()->user()->orders()->findOrFail($orderId);
+        
+        // Check if order can be returned (delivered within return period)
+        if ($order->status !== 'delivered') {
+            return back()->with('error', 'Only delivered orders can be returned.');
+        }
+        
+        // Check return period (30 days)
+        if ($order->updated_at->diffInDays(now()) > 30) {
+            return back()->with('error', 'Return period has expired. Orders can only be returned within 30 days of delivery.');
+        }
+
+        // Create return request (you would need a returns table)
+        // For now, we'll add a note to the order
+        $order->update([
+            'notes' => ($order->notes ? $order->notes . "\n" : '') . 
+                      "Return requested on " . now()->format('Y-m-d H:i:s') . 
+                      ". Reason: " . $request->reason
+        ]);
+
+        return back()->with('success', 'Return request submitted successfully. We will contact you within 2-3 business days.');
+    }
+
+    /**
+     * Process order exchange request
+     */
+    public function exchangeOrder(Request $request, $orderId)
+    {
+        $request->validate([
+            'reason' => 'required|string|max:500',
+            'items' => 'required|array',
+            'items.*' => 'exists:order_items,id',
+            'exchange_reason' => 'required|string|max:500'
+        ]);
+
+        $order = auth()->user()->orders()->findOrFail($orderId);
+        
+        // Check if order can be exchanged
+        if ($order->status !== 'delivered') {
+            return back()->with('error', 'Only delivered orders can be exchanged.');
+        }
+        
+        // Check exchange period (15 days)
+        if ($order->updated_at->diffInDays(now()) > 15) {
+            return back()->with('error', 'Exchange period has expired. Orders can only be exchanged within 15 days of delivery.');
+        }
+
+        // Create exchange request
+        $order->update([
+            'notes' => ($order->notes ? $order->notes . "\n" : '') . 
+                      "Exchange requested on " . now()->format('Y-m-d H:i:s') . 
+                      ". Reason: " . $request->reason . 
+                      ". Exchange reason: " . $request->exchange_reason
+        ]);
+
+        return back()->with('success', 'Exchange request submitted successfully. We will contact you within 2-3 business days.');
+    }
+
+    /**
+     * Download order invoice
+     */
+    public function downloadInvoice($orderId)
+    {
+        $order = auth()->user()->orders()->with(['items.product', 'address'])->findOrFail($orderId);
+        
+        // Generate PDF invoice (you would use a PDF library like DomPDF or wkhtmltopdf)
+        // For now, return a view that can be printed
+        return view('orders.invoice', compact('order'));
+    }
+
+    /**
+     * Download order receipt
+     */
+    public function downloadReceipt($orderId)
+    {
+        $order = auth()->user()->orders()->with(['items.product', 'address'])->findOrFail($orderId);
+        
+        // Generate PDF receipt
+        return view('orders.receipt', compact('order'));
+    }
 }

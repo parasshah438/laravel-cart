@@ -629,10 +629,69 @@
 
                 <!-- Action Buttons -->
                 <div class="d-grid gap-2 mt-4">
-                    <a href="#" class="btn btn-primary-custom btn-custom">
-                        <i class="fas fa-redo me-2"></i>Reorder Items
-                    </a>
-                    <a href="#" class="btn btn-outline-secondary btn-custom">
+                    <!-- Primary Actions -->
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <a href="{{ route('order.track', $order) }}" class="btn btn-primary-custom btn-custom w-100">
+                                <i class="fas fa-map-marker-alt me-2"></i>Track Order
+                            </a>
+                        </div>
+                        <div class="col-6">
+                            @if($order->status === 'delivered')
+                                <form method="POST" action="{{ route('order.reorder', $order) }}" class="d-inline w-100">
+                                    @csrf
+                                    <button type="submit" class="btn btn-success btn-custom w-100">
+                                        <i class="fas fa-redo me-2"></i>Reorder
+                                    </button>
+                                </form>
+                            @else
+                                <a href="{{ route('order.reorder', $order) }}" class="btn btn-outline-primary btn-custom w-100">
+                                    <i class="fas fa-redo me-2"></i>Reorder Items
+                                </a>
+                            @endif
+                        </div>
+                    </div>
+                    
+                    <!-- Document Downloads -->
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <a href="{{ route('order.invoice', $order) }}" class="btn btn-outline-info btn-custom w-100" target="_blank">
+                                <i class="fas fa-file-invoice me-2"></i>Download Invoice
+                            </a>
+                        </div>
+                        <div class="col-6">
+                            <a href="{{ route('order.receipt', $order) }}" class="btn btn-outline-info btn-custom w-100" target="_blank">
+                                <i class="fas fa-receipt me-2"></i>Download Receipt
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <!-- Order Management Actions -->
+                    @if($order->status === 'delivered')
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <button type="button" class="btn btn-outline-warning btn-custom w-100" data-bs-toggle="modal" data-bs-target="#returnModal">
+                                    <i class="fas fa-undo me-2"></i>Return Order
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button type="button" class="btn btn-outline-secondary btn-custom w-100" data-bs-toggle="modal" data-bs-target="#exchangeModal">
+                                    <i class="fas fa-exchange-alt me-2"></i>Exchange Items
+                                </button>
+                            </div>
+                        </div>
+                    @elseif(in_array($order->status, ['pending', 'confirmed']))
+                        <form method="POST" action="{{ route('order.cancel', $order) }}" 
+                              onsubmit="return confirm('Are you sure you want to cancel this order?')">
+                            @csrf
+                            <button type="submit" class="btn btn-outline-danger btn-custom w-100">
+                                <i class="fas fa-times me-2"></i>Cancel Order
+                            </button>
+                        </form>
+                    @endif
+                    
+                    <!-- Support -->
+                    <a href="{{ route('support.index') }}" class="btn btn-outline-secondary btn-custom">
                         <i class="fas fa-headset me-2"></i>Contact Support
                     </a>
                 </div>
@@ -798,5 +857,129 @@
             }
         }
     </style>
+
+    <!-- Return Order Modal -->
+    <div class="modal fade" id="returnModal" tabindex="-1" aria-labelledby="returnModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="returnModalLabel">
+                        <i class="fas fa-undo me-2"></i>Return Order
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST" action="{{ route('order.return', $order) }}">
+                    @csrf
+                    <div class="modal-body">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Return Policy:</strong> Items can be returned within 30 days of delivery. 
+                            Items must be in original condition with all packaging and tags intact.
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="returnReason" class="form-label">Reason for Return *</label>
+                            <select class="form-select" id="returnReason" name="reason" required>
+                                <option value="">Select a reason...</option>
+                                <option value="defective">Product is defective/damaged</option>
+                                <option value="not_as_described">Product not as described</option>
+                                <option value="wrong_item">Received wrong item</option>
+                                <option value="size_issue">Size/fit issue</option>
+                                <option value="quality_issue">Quality not satisfactory</option>
+                                <option value="changed_mind">Changed my mind</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="returnDetails" class="form-label">Additional Details</label>
+                            <textarea class="form-control" id="returnDetails" name="details" rows="3" 
+                                      placeholder="Please provide additional details about the return..."></textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Items to Return</label>
+                            @foreach($order->items as $item)
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="items[]" 
+                                           value="{{ $item->id }}" id="returnItem{{ $item->id }}" checked>
+                                    <label class="form-check-label" for="returnItem{{ $item->id }}">
+                                        {{ $item->product_name }} (Qty: {{ $item->quantity }})
+                                    </label>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-undo me-1"></i>Submit Return Request
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Exchange Order Modal -->
+    <div class="modal fade" id="exchangeModal" tabindex="-1" aria-labelledby="exchangeModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="exchangeModalLabel">
+                        <i class="fas fa-exchange-alt me-2"></i>Exchange Items
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST" action="{{ route('order.exchange', $order) }}">
+                    @csrf
+                    <div class="modal-body">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Exchange Policy:</strong> Items can be exchanged within 15 days of delivery. 
+                            Exchanges are subject to product availability.
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="exchangeReason" class="form-label">Reason for Exchange *</label>
+                            <select class="form-select" id="exchangeReason" name="reason" required>
+                                <option value="">Select a reason...</option>
+                                <option value="size_issue">Size/fit issue</option>
+                                <option value="color_preference">Color preference</option>
+                                <option value="defective">Product is defective</option>
+                                <option value="upgrade">Want to upgrade</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="exchangeFor" class="form-label">What would you like to exchange for? *</label>
+                            <textarea class="form-control" id="exchangeFor" name="exchange_reason" rows="3" required
+                                      placeholder="Please specify what you'd like to exchange for (size, color, model, etc.)..."></textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Items to Exchange</label>
+                            @foreach($order->items as $item)
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="items[]" 
+                                           value="{{ $item->id }}" id="exchangeItem{{ $item->id }}">
+                                    <label class="form-check-label" for="exchangeItem{{ $item->id }}">
+                                        {{ $item->product_name }} (Qty: {{ $item->quantity }})
+                                    </label>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-exchange-alt me-1"></i>Submit Exchange Request
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

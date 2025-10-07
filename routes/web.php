@@ -11,36 +11,25 @@ Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
-// Product routes
+//Product routes
 Route::get('/products/search', [ProductController::class, 'search'])->name('products.search');
 Route::get('/product/{slug}', [ProductController::class, 'showProduct'])->name('product.show');
 Route::get('/recently-viewed', [ProductController::class, 'getRecentlyViewedProducts'])->name('product.recentlyViewed');
 Route::post('/recently-viewed/clear', [ProductController::class, 'clearRecentlyViewed'])->name('recently-viewed.clear')->middleware('auth');
 
-// ================================================================================================
-// 🛍️ SHOP & PRODUCT LISTING ROUTES (Amazon Style)
-// ================================================================================================
+//Shop routes
 Route::get('/shop', [ProductController::class, 'shop'])->name('shop');
 Route::get('/shop/products', [ProductController::class, 'getProducts'])->name('shop.products'); // AJAX endpoint
 Route::get('/shop/filters', [ProductController::class, 'getFilters'])->name('shop.filters'); // AJAX endpoint
 Route::get('/shop/load-more', [ProductController::class, 'loadMore'])->name('shop.load-more'); // Load more products
 Route::get('/shop/search-suggestions', [ProductController::class, 'getSearchSuggestions'])->name('shop.search-suggestions'); // Search suggestions
 
-//trendingProducts
+//TrendingProducts
 Route::get('/trending-products', [ProductController::class, 'trending'])->name('product.trending');
 Route::get('/recommendations', [ProductController::class, 'recommendedProducts'])->name('products.recommended');
-
-// ================================================================================================
-// 🤖 AI-POWERED SHOPPING ROUTES (Next-Gen E-commerce)
-// ================================================================================================
 Route::get('/ai/recommendations', [App\Http\Controllers\AIController::class, 'personalizedRecommendations'])->name('ai.recommendations');
 Route::get('/ai/api/recommendations', [App\Http\Controllers\AIController::class, 'getRecommendationsApi'])->name('ai.api.recommendations');
 
-
-Route::post('/cart/save-for-later', [CartController::class, 'saveForLater'])->name('cart.saveForLater');
-Route::post('/cart/move-to-cart', [CartController::class, 'moveToCartFromSaved'])->name('cart.moveToCartFromSaved');
-Route::post('/cart/apply-coupon', [CartController::class, 'applyCoupon'])->name('cart.applyCoupon');
-Route::post('/cart/remove-coupon', [CartController::class, 'removeCoupon'])->name('cart.removeCoupon');
 
 /*
 Route::get('/cart', [CartController::class, 'view'])->name('cart.view');
@@ -58,23 +47,20 @@ Route::post('/cart/update', [CartController::class, 'ajaxUpdate'])->name('cart.a
 Route::post('/cart/remove', [CartController::class, 'ajaxRemove'])->name('cart.ajaxRemove');
 Route::post('/cart/clear', [CartController::class, 'clear'])->name('cart.clear');
 Route::get('/cart/count', [CartController::class, 'getCartCount'])->name('cart.count');
+
 Route::get('/cart/saved-items-refresh', [CartController::class, 'refreshSavedItemsView'])->name('cart.savedItems.refresh');
 Route::get('/cart/items/refresh', [CartController::class, 'refreshCartView'])->name('cart.items.refresh');
 Route::get('/cart/summary', [CartController::class, 'getCartSummary'])->name('cart.summary');
 
-// ✅ PROFESSIONAL BUY NOW ROUTE (Amazon/Flipkart Style)
+Route::post('/cart/save-for-later', [CartController::class, 'saveForLater'])->name('cart.saveForLater');
+Route::post('/cart/move-to-cart', [CartController::class, 'moveToCartFromSaved'])->name('cart.moveToCartFromSaved');
+Route::post('/cart/apply-coupon', [CartController::class, 'applyCoupon'])->name('cart.applyCoupon');
+Route::post('/cart/remove-coupon', [CartController::class, 'removeCoupon'])->name('cart.removeCoupon');
 Route::post('/cart/buy-now', [CartController::class, 'buyNow'])->name('cart.buyNow')->middleware('auth');
 
-// ================================================================================================
-// 📝 REVIEWS & RATINGS ROUTES - Professional Amazon/Flipkart Style System
-// ================================================================================================
-
-// Public review routes
+//Public review routes
 Route::get('/reviews', [ReviewController::class, 'allReviews'])->name('reviews.all');
 Route::get('/product/{product}/reviews', [ReviewController::class, 'index'])->name('product.reviews');
-
-// ✅ SMART COUPON SYSTEM ROUTE (Amazon/Flipkart Style)
-// Single route handles both smart mode (?mode=smart) and all mode (?mode=all)
 Route::get('/cart/available-coupons', [CartController::class, 'getAvailableCoupons'])->name('cart.availableCoupons');
 
 Route::get('/cart/gift-products', [CartController::class, 'getGiftProducts'])->name('cart.giftProducts');
@@ -94,14 +80,20 @@ Route::prefix('api')->group(function() {
 });
 
 Route::middleware(['auth'])->group(function () {
-    // Order Management System
+    //Order Management System
     Route::get('/orders', [\App\Http\Controllers\CheckoutController::class, 'orderHistory'])->name('orders.index');
     Route::get('/order/{order}', [\App\Http\Controllers\CheckoutController::class, 'orderDetails'])->name('order.details');
     Route::get('/order/{order}/track', [\App\Http\Controllers\CheckoutController::class, 'trackOrder'])->name('order.track');
     Route::post('/order/{order}/cancel', [\App\Http\Controllers\CheckoutController::class, 'cancelOrder'])->name('order.cancel');
     Route::post('/order/{order}/reorder', [\App\Http\Controllers\CheckoutController::class, 'reorder'])->name('order.reorder');
+    
+    //Advanced Order Management Features
+    Route::post('/order/{order}/return', [\App\Http\Controllers\CheckoutController::class, 'returnOrder'])->name('order.return');
+    Route::post('/order/{order}/exchange', [\App\Http\Controllers\CheckoutController::class, 'exchangeOrder'])->name('order.exchange');
+    Route::get('/order/{order}/invoice', [\App\Http\Controllers\CheckoutController::class, 'downloadInvoice'])->name('order.invoice');
+    Route::get('/order/{order}/receipt', [\App\Http\Controllers\CheckoutController::class, 'downloadReceipt'])->name('order.receipt');
 
-    // Admin order status updates (temporary for testing)
+    //Admin order status updates (temporary for testing)
     Route::post('/admin/order/{order}/update-status', [\App\Http\Controllers\CheckoutController::class, 'updateOrderStatus'])->name('admin.order.updateStatus');
 
     //Profile
@@ -125,13 +117,13 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/wishlist/share/{share}/toggle-visibility', [WishlistShareController::class, 'toggleVisibility'])->name('wishlist.share.toggleVisibility');
     Route::post('/wishlist/share/{share}/extend', [WishlistShareController::class, 'extend'])->name('wishlist.share.extend');
 
-    // Write & manage reviews
+    //Write & manage reviews
     Route::post('/product/{product}/review', [ReviewController::class, 'store'])->name('review.store');
     Route::get('/review/{review}/edit', [ReviewController::class, 'edit'])->name('review.edit');
     Route::put('/review/{review}', [ReviewController::class, 'update'])->name('review.update');
     Route::delete('/review/{review}', [ReviewController::class, 'destroy'])->name('review.destroy');
     
-    // Review interactions
+    //Review interactions
     Route::post('/review/{review}/helpful', [ReviewController::class, 'markHelpful'])->name('review.helpful');
     Route::post('/review/{review}/report', [ReviewController::class, 'report'])->name('review.report');
     Route::post('/review/{review}/photo', [ReviewController::class, 'addPhoto'])->name('review.photo');
@@ -148,12 +140,12 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/checkout/address/save', [AddressController::class, 'store'])->name('checkout.address.save');
     Route::get('/checkout/payment', [CheckoutController::class, 'payment'])->name('checkout.payment');
 
-        // Place Order
+        //Place Order
         Route::post('/checkout/place-order', [CheckoutController::class, 'placeOrder'])->name('checkout.placeOrder');
-        // Thank You page
+        //Thank You page
         Route::get('/checkout/thank-you/{order?}', [CheckoutController::class, 'thankYou'])->name('checkout.thankyou');
         
-        // ✅ TEST EMAIL ROUTE (Remove in production)
+        //TEST EMAIL ROUTE (Remove in production)
         Route::get('/test-order-email', function() {
             $user = auth()->user();
             if (!$user) return redirect()->route('login');
@@ -165,9 +157,7 @@ Route::middleware(['auth'])->group(function () {
         })->name('test.order.email');
 });
 
-// ================================================================================================
-// ⚖️ PRODUCT COMPARISON ROUTES (Amazon Style)
-// ================================================================================================
+//compare
 Route::prefix('compare')->name('compare.')->group(function() {
     Route::get('/', [CompareController::class, 'index'])->name('index');
     Route::post('/add/{product}', [CompareController::class, 'add'])->name('add');
@@ -190,19 +180,15 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
 // Include test routes for Amazon review system (remove in production)
 include __DIR__ . '/test-reviews.php';
 
-// ================================================================================================
-// 🔗 WISHLIST SHARING (Public Routes)
-// ================================================================================================
+//WISHLIST SHARING (Public Routes)
 Route::get('/shared-wishlist/{token}', [WishlistShareController::class, 'view'])->name('wishlist.shared.view');
 
-// ================================================================================================
-// ❓ CUSTOMER SUPPORT SYSTEM (Professional Support)
-// ================================================================================================
+//support
 Route::middleware('auth')->group(function() {
     // Support dashboard
     Route::get('/support', [SupportController::class, 'index'])->name('support.index');
     
-    // Support tickets
+    //Support tickets
     Route::get('/support/tickets', [SupportController::class, 'tickets'])->name('support.tickets');
     Route::get('/support/tickets/create', [SupportController::class, 'create'])->name('support.create');
     Route::post('/support/tickets', [SupportController::class, 'store'])->name('support.store');
@@ -216,7 +202,7 @@ Route::middleware('auth')->group(function() {
     Route::post('/support/chat/send', [SupportController::class, 'sendMessage'])->name('support.chat.send');
     Route::post('/support/chat/{chat}/end', [SupportController::class, 'endChat'])->name('support.chat.end');
     
-    // Debug route for testing chat messages
+    //Debug route for testing chat messages
     Route::post('/support/chat/test', function(Request $request) {
         return response()->json([
             'received_data' => $request->all(),
@@ -228,17 +214,14 @@ Route::middleware('auth')->group(function() {
     })->name('support.chat.test');
 });
 
-// Public support routes
+//Public support routes
 Route::get('/help', [SupportController::class, 'help'])->name('help');
 Route::get('/faq', [SupportController::class, 'faq'])->name('faq');
 
-// Legacy routes for backward compatibility
+//Legacy routes for backward compatibility
 Route::get('/contact-us', [SupportController::class, 'contact'])->name('contact');
 Route::post('/contact-us', [SupportController::class, 'submitContact'])->name('contact.submit');
 
-// ================================================================================================
-// 🔧 ADMIN SUPPORT ROUTES (Include admin.php)
-// ================================================================================================
-require __DIR__.'/admin.php';
 
+require __DIR__.'/admin.php';
 require __DIR__.'/auth.php';
