@@ -72,6 +72,28 @@ class User extends Authenticatable
         return $this->hasMany(Order::class);
     }
 
+    public function notifications()
+    {
+        return $this->hasMany(Notification::class);
+    }
+
+    /**
+     * Get the user's notification preferences.
+     */
+    public function notificationPreferences()
+    {
+        return $this->hasOne(UserNotificationPreference::class);
+    }
+
+    /**
+     * Get or create notification preferences for this user.
+     */
+    public function getNotificationPreferences()
+    {
+        return $this->notificationPreferences ?? 
+               $this->notificationPreferences()->create(UserNotificationPreference::getDefaults());
+    }
+
     // ================================================================================================
     // 📝 REVIEW RELATIONSHIPS
     // ================================================================================================

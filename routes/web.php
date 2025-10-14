@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\{ProfileController, CartController, WishlistController, FrontendController, ProductController, CheckoutController, AddressController, CategoryController, ReviewController, CompareController, SupportController, WishlistShareController};
+use App\Http\Controllers\{ProfileController, CartController, WishlistController, FrontendController, ProductController, CheckoutController, AddressController, CategoryController, ReviewController, CompareController, SupportController, WishlistShareController, NotificationController};
 
 
 Route::get('/', [FrontendController::class, 'index'])->name('front.index');
@@ -212,6 +212,20 @@ Route::middleware('auth')->group(function() {
             'chat_id_value' => $request->get('chat_id')
         ]);
     })->name('support.chat.test');
+
+    // ================================================================================================
+    // 🔔 NOTIFICATIONS SYSTEM
+    // ================================================================================================
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/{notification}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.readAll');
+    Route::delete('/notifications/{notification}', [NotificationController::class, 'destroy'])->name('notifications.destroy');
+    Route::get('/notifications/preferences', [NotificationController::class, 'preferences'])->name('notifications.preferences');
+    Route::post('/notifications/preferences', [NotificationController::class, 'updatePreferences'])->name('notifications.updatePreferences');
+    
+    // API routes for real-time notifications
+    Route::get('/api/notifications/unread-count', [NotificationController::class, 'getUnreadCount'])->name('notifications.unreadCount');
+    Route::get('/api/notifications/recent', [NotificationController::class, 'getRecent'])->name('notifications.recent');
 });
 
 //Public support routes
@@ -225,3 +239,6 @@ Route::post('/contact-us', [SupportController::class, 'submitContact'])->name('c
 
 require __DIR__.'/admin.php';
 require __DIR__.'/auth.php';
+
+// Include test routes for notification system (remove in production)
+include __DIR__ . '/test-notifications.php';
