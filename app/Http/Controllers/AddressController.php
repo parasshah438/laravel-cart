@@ -242,8 +242,8 @@ public function update(Request $request, UserAddress $address)
             abort(403);
         }
 
-        // Soft delete by setting is_active to false
-        $address->update(['is_active' => false]);
+        // Actually delete the record from the database
+        $address->delete();
 
         return response()->json([
             'success' => true,

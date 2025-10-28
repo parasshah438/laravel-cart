@@ -237,8 +237,43 @@ Route::get('/contact-us', [SupportController::class, 'contact'])->name('contact'
 Route::post('/contact-us', [SupportController::class, 'submitContact'])->name('contact.submit');
 
 
+
+//location routes
+
+Route::get('/location-integration', function () {
+    return view('location-integration');
+})->name('location.integration');
+
+
+Route::get('/postal-code-checker', [App\Http\Controllers\PostalCodeController::class, 'index'])->name('postal.code.checker');
+Route::post('/api/validate-postal-code', [App\Http\Controllers\PostalCodeController::class, 'validatePostalCode'])->name('api.validate.postal.code');
+Route::get('/api/supported-countries', [App\Http\Controllers\PostalCodeController::class, 'getSupportedCountries'])->name('api.supported.countries');
+
+//Geolocation API routes
+Route::get('/api/geo-location', [App\Http\Controllers\GeoLocationController::class, 'getCountryCode'])->name('api.geo.location');
+Route::post('/api/location-details', [App\Http\Controllers\GeoLocationController::class, 'getLocationDetails'])->name('api.location.details');
+Route::get('/api/location-from-ip', [App\Http\Controllers\GeoLocationController::class, 'getLocationFromIP'])->name('api.location.from.ip');
+Route::post('/api/ip-location', [App\Http\Controllers\GeoLocationController::class, 'getLocationFromIP'])->name('api.ip.location');
+Route::post('/api/network-location', [App\Http\Controllers\GeoLocationController::class, 'getLocationFromIP'])->name('api.network.location');
+Route::get('/api/search-locations', [App\Http\Controllers\GeoLocationController::class, 'searchLocations'])->name('api.search.locations');
+Route::get('/api/pincode-details', [App\Http\Controllers\GeoLocationController::class, 'getPincodeDetails'])->name('api.pincode.details');
+
+// Location Demo Page
+Route::get('/location-demo', function () {
+    return view('location-demo');
+})->name('location.demo');
+
+// Location Integration Example
+Route::get('/location-integration', function () {
+    return view('location-integration-example');
+})->name('location.integration');
+
+// Test Location Auto-Fill (Development Only)
+Route::get('/test-location-form', function () {
+    $countries = \App\Models\Country::all();
+    $cartItems = []; // Empty for testing
+    return view('partials._address_form', compact('countries', 'cartItems'));
+})->name('test.location.form');
+
 require __DIR__.'/admin.php';
 require __DIR__.'/auth.php';
-
-// Include test routes for notification system (remove in production)
-include __DIR__ . '/test-notifications.php';

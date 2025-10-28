@@ -28,7 +28,8 @@ class WorldDataSeeder extends Seeder
     private function seedCountries()
     {
         // Download countries JSON
-        $url = 'https://raw.githubusercontent.com/dr5hn/countries-states-cities-database/master/json/countries.json';
+        $url = 'https://raw.githubusercontent.com/dr5hn/countries-states-cities-database/refs/heads/master/json/countries.json';
+        
         $response = Http::withOptions([
             'timeout' => 120, // Increase timeout for large data
             'connect_timeout' => 60,
@@ -37,10 +38,7 @@ class WorldDataSeeder extends Seeder
         
         if ($response->successful()) {
             $countries = $response->json();
-            
             foreach ($countries as $country) {
-
-                //dd($country);
                 Country::updateOrCreate(
                     ['code' => $country['iso2']],
                     [
@@ -59,7 +57,7 @@ class WorldDataSeeder extends Seeder
 
     private function seedStates()
     {
-        $url = 'https://raw.githubusercontent.com/dr5hn/countries-states-cities-database/master/json/states.json';
+        $url = 'https://raw.githubusercontent.com/dr5hn/countries-states-cities-database/refs/heads/master/json/states.json';
         $response = Http::withOptions([
             'timeout' => 120,
             'connect_timeout' => 60,
@@ -74,9 +72,6 @@ class WorldDataSeeder extends Seeder
                 $country = Country::where('code', $state['country_code'])->first();
                 
                 if ($country) {
-                    // Generate unique code for states without state_code
-                    //$stateCode = $state['state_code'] ?? $this->generateStateCode($state['name'], $country->id);
-                    //dd($state);
                     State::updateOrCreate(
                         [
                             'name' => $state['name'],
@@ -97,47 +92,79 @@ class WorldDataSeeder extends Seeder
 
     private function seedCities()
     {
-        // Focus on Indian cities first
-        $url = 'https://raw.githubusercontent.com/dr5hn/countries-states-cities-database/master/json/cities.json';
-        $response = Http::withOptions([
-            'timeout' => 120, // Increase timeout for large data
-            'connect_timeout' => 60,
-            'verify' => false, // Disable SSL verification if necessary
+        $url = 'https://raw.githubusercontent.com/dr5hn/countries-states-cities-database/master/json/cities.json.gz';
+
+        $this->command->info('Downloading and importing Indian cities...');
+
+        try {
+            $response = Http::withOptions([
+                'timeout' => 180,
+                'connect_timeout' => 60,
+                'verify' => false,
             ])->get($url);
-        
-        if ($response->successful()) {
-            $cities = $response->json();
-            
-            // Filter for India first (to avoid memory issues)
-            $indianCities = array_filter($cities, function($city) {
-                return $city['country_code'] === 'IN';
-            });
-            
-            foreach ($indianCities as $city) {
-                $country = Country::where('code', $city['country_code'])->first();
-                $state = State::where('name', $city['state_name'])
-                             ->where('country_id', $country->id ?? 0)
-                             ->first();
-                
-                if ($country && $state) {
-                    City::updateOrCreate(
-                        [
+
+            if ($response->successful()) {
+                // Decompress gzipped content
+                $gzData = $response->body();
+                $jsonData = gzdecode($gzData);
+
+                if ($jsonData === false) {
+                    $this->command->error('Failed to decompress city data!');
+                    return;
+                }
+
+                $cities = json_decode($jsonData, true);
+                if (!$cities) {
+                    $this->command->error('Invalid JSON structure!');
+                    return;
+                }
+
+                // ✅ Filter for India only
+                $indianCities = array_filter($cities, fn($city) => $city['country_code'] === 'IN');
+
+                $this->command->info('Found ' . count($indianCities) . ' Indian cities.');
+
+                $batchSize = 500;
+                $batch = [];
+
+                foreach ($indianCities as $city) {
+                    $state = State::where('name', $city['state_name'])
+                        ->where('country_id', 100) // hardcoded India
+                        ->first();
+
+                    if ($state) {
+                        $batch[] = [
                             'name' => $city['name'],
                             'state_id' => $state->id,
-                            'country_id' => $country->id,
-                        ],
-                        [
+                            'country_id' => 100, // fixed India ID
                             'is_major' => false,
                             'postal_code_pattern' => false,
                             'is_active' => true,
                             'sort_order' => 0,
-                        ]
-                    );
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ];
+
+                        // Insert in batches for performance
+                        if (count($batch) >= $batchSize) {
+                            City::insert($batch);
+                            $batch = [];
+                        }
+                    }
                 }
+
+                // Insert remaining
+                if (!empty($batch)) {
+                    City::insert($batch);
+                }
+
+                $this->command->info('Indian cities imported successfully!');
+            } else {
+                $this->command->error('Failed to fetch city data from URL.');
             }
+        } catch (\Exception $e) {
+            $this->command->error('Error importing cities: ' . $e->getMessage());
         }
-        
-        $this->command->info('Cities imported successfully!');
     }
 
     private function getCountryPriority($countryCode)
@@ -155,53 +182,81 @@ class WorldDataSeeder extends Seeder
 
     private function seedPostalCodes()
     {
+        $this->command->info('📦 Seeding Indian Postal Codes...');
 
-        $country = Country::where('code', 'IN')->first();
-        if (!$country) {
-            $this->command->error('Country IN not found.');
+        $url = 'https://raw.githubusercontent.com/deep5050/indian-pincodes-database/master/data.json';
+
+        // Fetch data from GitHub
+        $response = Http::withOptions([
+            'timeout' => 180,
+            'connect_timeout' => 60,
+            'verify' => false,
+        ])->get($url);
+
+        if (!$response->successful()) {
+            $this->command->error("❌ Failed to fetch data. HTTP Status: {$response->status()}");
             return;
         }
 
-        $path = database_path('data/postal/IN.txt');
-        $rows = File::lines($path);
+        // Clean BOM & Decode JSON
+        $body = preg_replace('/^\xEF\xBB\xBF/', '', $response->body());
+        $json = json_decode($body, true);
 
-         foreach ($rows as $line) {
-            $columns = explode("\t", $line);
-
-            $postalCode = $columns[1] ?? null;
-            $area       = $columns[2] ?? null;
-            $stateName  = $columns[3] ?? null;
-            $cityName   = $columns[7] ?? null;
-
-            if (!$postalCode || !$cityName || !$stateName) continue;
-
-            $state = State::where('name', $stateName)
-                ->where('country_id', $country->id)
-                ->first();
-
-            if (!$state) continue;    
-
-            $city = City::where('name', $cityName)
-                ->where('state_id', $state->id)
-                ->where('country_id', $country->id)
-                ->first();
-            
-            if (!$city) continue;
-    
-
-            PostalCode::updateOrCreate(
-                [
-                    'code'       => $postalCode,
-                    'country_id' => $country->id,
-                ],
-                [
-                    'area'       => $area,
-                    'state_id'   => $state->id,
-                    'city_id'    => $city->id,
-                    'is_active'  => true,
-                ]
-            );
+        if (!isset($json['Sheet1'])) {
+            $this->command->error('❌ Invalid JSON format.');
+            return;
         }
-        $this->command->info('Postal codes seeded from IN.txt');
+
+        $rows = $json['Sheet1'];
+        $this->command->info('✅ Loaded ' . count($rows) . ' postal records.');
+
+        // Preload states & cities for faster lookup
+        $countryId = 100; // India ID
+        $states = State::where('country_id', $countryId)->pluck('id', 'name')->toArray();
+        $cities = City::where('country_id', $countryId)->pluck('id', 'name')->toArray();
+
+        $batchData = [];
+        $inserted = 0;
+
+        foreach ($rows as $row) {
+            $pincode = trim($row['Pincode'] ?? '');
+            $area = trim($row['PostOfficeName'] ?? '');
+            $stateName = trim($row['State'] ?? '');
+            $cityName = trim($row['City'] ?? '');
+
+            if (!$pincode || !$stateName || !$cityName) continue;
+
+            $stateId = $states[$stateName] ?? null;
+            $cityId = $cities[$cityName] ?? null;
+
+            if (!$stateId || !$cityId) continue;
+
+            $batchData[] = [
+                'code'        => $pincode,
+                'area'        => $area,
+                'state_id'    => $stateId,
+                'city_id'     => $cityId,
+                'country_id'  => $countryId,
+                'is_active'   => 1,
+                'created_at'  => now(),
+                'updated_at'  => now(),
+            ];
+
+            // Insert in chunks to avoid memory issues
+            if (count($batchData) >= 1000) {
+                PostalCode::upsert($batchData, ['code', 'country_id'], ['area', 'state_id', 'city_id', 'updated_at']);
+                $inserted += count($batchData);
+                $batchData = [];
+                $this->command->info("Inserted {$inserted} records...");
+            }
+        }
+
+        // Insert remaining data
+        if (!empty($batchData)) {
+            PostalCode::upsert($batchData, ['code', 'country_id'], ['area', 'state_id', 'city_id', 'updated_at']);
+            $inserted += count($batchData);
+        }
+
+        $this->command->info("🎉 Completed seeding {$inserted} postal codes for India!");
     }
 }

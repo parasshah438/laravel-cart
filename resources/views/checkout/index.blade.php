@@ -4,6 +4,7 @@
     <title>Bootstrap 5 Example</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -101,14 +102,10 @@
                                                         @endif
                                                         <li><hr class="dropdown-divider"></li>
                                                         <li>
-                                                            <form action="{{ route('address.destroy', $address->id) }}" method="POST" class="d-inline">
-                                                                @csrf @method('DELETE')
-                                                                <button class="dropdown-item text-danger" 
-                                                                        onclick="return confirm('Delete this address?')" 
-                                                                        type="submit">
-                                                                    🗑️ Delete
-                                                                </button>
-                                                            </form>
+                                                            <a class="dropdown-item text-danger" href="javascript:void(0)" 
+                                                               onclick="deleteAddress({{ $address->id }})">
+                                                                🗑️ Delete
+                                                            </a>
                                                         </li>
                                                     </ul>
                                                 </div>
@@ -451,6 +448,23 @@
                             </div>
                         </div>
                     </div>
+
+                    {{-- Location Detection Button --}}
+                    <div class="mb-4">
+                        <h6 class="mb-3">Quick Fill</h6>
+                        <div class="d-grid">
+                            <button type="button" class="btn btn-outline-primary" onclick="getCurrentLocationForEdit()">
+                                🌍 Use My Current Location
+                            </button>
+                        </div>
+                        <small class="text-muted mt-2 d-block">
+                            💡 Automatically detect and fill your current address details
+                        </small>
+                    </div>
+
+                    {{-- Hidden Fields for Location Data --}}
+                    <input type="hidden" name="latitude" id="edit_latitude">
+                    <input type="hidden" name="longitude" id="edit_longitude">
                 </form>
             </div>
             <div class="modal-footer">
@@ -465,14 +479,64 @@
 
 
     <script>
+        // Ship different address functionality (only if elements exist)
         const shipCheckbox = document.getElementById('ship_different');
         const shipForm = document.getElementById('shipping-address-section');
-        shipCheckbox.addEventListener('change', () => {
-            shipForm.style.display = shipCheckbox.checked ? 'block' : 'none';
+        
+        if (shipCheckbox && shipForm) {
+            shipCheckbox.addEventListener('change', () => {
+                shipForm.style.display = shipCheckbox.checked ? 'block' : 'none';
+            });
+        }
+
+
+// Delete address function
+async function deleteAddress(addressId) {
+    // Confirm deletion
+    if (!confirm('Are you sure you want to delete this address? This action cannot be undone.')) {
+        return;
+    }
+    
+    try {
+        // Get CSRF token
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
+                         document.querySelector('input[name="_token"]')?.value;
+        
+        console.log(`Attempting to delete address ID: ${addressId}`); // Debug log
+        
+        const response = await fetch(`/address/${addressId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
         });
+        
+        const data = await response.json();
+        console.log('Delete response:', data); // Debug log
+        
+        if (data.success) {
+            showSuccess(data.message || 'Address deleted successfully!');
+            
+            // Reload the page after a short delay to show updated address list
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+            
+        } else {
+            showError(data.message || 'Failed to delete address');
+            console.error('Delete failed:', data);
+        }
+        
+    } catch (error) {
+        console.error('Error deleting address:', error);
+        showError('Network error while deleting address. Please try again.');
+    }
+}
 
-
-        // Open edit modal and populate with address data
+// Open edit modal and populate with address data
 async function openEditModal(addressId) {
    
     try {
@@ -657,7 +721,9 @@ function showError(message) {
         duration: 4000,
         gravity: "top",
         position: "right",
-        backgroundColor: "#dc3545",
+        style: {
+            background: "#dc3545"
+        },
         stopOnFocus: true,
     }).showToast();
 }
@@ -668,7 +734,9 @@ function showSuccess(message) {
         duration: 3000,
         gravity: "top",
         position: "right",
-        backgroundColor: "#28a745",
+        style: {
+            background: "#28a745"
+        },
         stopOnFocus: true,
     }).showToast();
 }
@@ -703,6 +771,537 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+// Enhanced getCurrentLocation function for Edit Modal
+function getCurrentLocationForEdit() {
+    // Check if geolocation is supported
+    if (!navigator.geolocation) {
+        showError('🚫 Geolocation is not supported by this browser. Please fill the form manually.');
+        return;
+    }
+
+    // Check if we're in a secure context
+    const isSecure = location.protocol === 'https:' || 
+                    location.hostname === 'localhost' || 
+                    location.hostname === '127.0.0.1' ||
+                    location.hostname.includes('192.168.') ||
+                    location.hostname.includes('10.') ||
+                    location.hostname.includes('172.');
+    
+    if (!isSecure) {
+        showError('🔒 Location access requires HTTPS. Using IP-based location instead...');
+        tryLocationFromIPForEdit();
+        return;
+    }
+
+    // Show loading state
+    const locationBtn = document.querySelector('button[onclick="getCurrentLocationForEdit()"]');
+    const originalText = locationBtn.innerHTML;
+    locationBtn.disabled = true;
+    locationBtn.innerHTML = '🌍 Getting Location...';
+
+    showSuccess('📍 Requesting high-accuracy location access... Please allow when prompted.');
+
+    // Use the same options as GeolocationManager for better accuracy
+    const options = {
+        enableHighAccuracy: true,
+        timeout: 10000,          // 10 seconds
+        maximumAge: 60000        // 1 minute cache for fresh data
+    };
+
+    navigator.geolocation.getCurrentPosition(
+        async function(position) {
+            try {
+                const coords = {
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude,
+                    accuracy: position.coords.accuracy
+                };
+
+                console.log(`📍 High-accuracy location acquired: ${coords.latitude}, ${coords.longitude} (±${coords.accuracy}m)`);
+
+                // Store coordinates in hidden fields immediately
+                const latField = document.getElementById('edit_latitude');
+                const lngField = document.getElementById('edit_longitude');
+                if (latField) latField.value = coords.latitude;
+                if (lngField) lngField.value = coords.longitude;
+
+                showSuccess(`📍 GPS lock achieved! Accuracy: ±${Math.round(coords.accuracy)}m. Getting address details...`);
+
+                // Use the same API call as GeolocationManager
+                const locationData = await getLocationDetailsFromCoordsForEdit(coords.latitude, coords.longitude);
+                
+                if (locationData) {
+                    // Apply the same form filling logic as location-integration
+                    await applyLocationDataToEditForm(locationData, coords);
+                    showSuccess('✅ Perfect! Your current location detected and form auto-filled!');
+                    
+                    // Debug: Show what was detected
+                    console.log('🎯 Edit location detected successfully:', {
+                        country: locationData.country || locationData.country_name,
+                        state: locationData.state || locationData.state_name,
+                        city: locationData.city || locationData.city_name,
+                        pincode: locationData.pincode || locationData.postal_code,
+                        area: locationData.area || locationData.neighbourhood
+                    });
+                    
+                } else {
+                    throw new Error('Unable to get detailed address from coordinates');
+                }
+
+            } catch (error) {
+                console.error('Location processing error:', error);
+                showError('⚠️ GPS coordinates obtained but address lookup failed: ' + error.message);
+                
+                // Try enhanced fallback
+                setTimeout(() => {
+                    showSuccess('🔄 Trying alternative location methods...');
+                    tryEnhancedLocationFallbackForEdit(position.coords.latitude, position.coords.longitude);
+                }, 2000);
+            } finally {
+                // Reset button state
+                setTimeout(() => {
+                    locationBtn.disabled = false;
+                    locationBtn.innerHTML = originalText;
+                }, 1500);
+            }
+        },
+        function(error) {
+            console.error('Geolocation error:', error);
+            
+            let errorMessage = '';
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    errorMessage = '🚫 Location access denied. Trying network-based detection...';
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    errorMessage = '📍 GPS unavailable. Using alternative location methods...';
+                    break;
+                case error.TIMEOUT:
+                    errorMessage = '⏰ GPS timeout. Switching to network location...';
+                    break;
+                default:
+                    errorMessage = '❓ GPS error. Using fallback location detection...';
+                    break;
+            }
+            
+            showError(errorMessage);
+            
+            // Use the same fallback strategy as GeolocationManager
+            setTimeout(() => {
+                tryEnhancedLocationFallbackForEdit();
+            }, 1000);
+            
+            // Reset button state
+            setTimeout(() => {
+                locationBtn.disabled = false;
+                locationBtn.innerHTML = originalText;
+            }, 2000);
+        },
+        options
+    );
+}
+
+// Get location details from coordinates for Edit Modal
+async function getLocationDetailsFromCoordsForEdit(latitude, longitude) {
+    try {
+        // Get CSRF token
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
+                         document.querySelector('input[name="_token"]')?.value;
+        
+        const response = await fetch('/api/location-details', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ 
+                latitude: latitude, 
+                longitude: longitude 
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            return data.data;
+        } else {
+            throw new Error(data.error || 'Failed to get location details');
+        }
+    } catch (error) {
+        console.error('Error getting location details for edit:', error);
+        throw error;
+    }
+}
+
+// Apply location data to Edit Form
+async function applyLocationDataToEditForm(locationData, coords = null) {
+    try {
+        console.log('Applying location data to edit form:', locationData);
+
+        // Store coordinates if provided
+        if (coords) {
+            const latField = document.getElementById('edit_latitude');
+            const lngField = document.getElementById('edit_longitude');
+            if (latField) latField.value = coords.latitude;
+            if (lngField) lngField.value = coords.longitude;
+        }
+
+        // Normalize location data
+        const normalizedData = normalizeLocationDataForEdit(locationData);
+        console.log('Normalized location data for edit:', normalizedData);
+
+        // Fill direct text fields
+        const fieldMappings = [
+            { source: ['area', 'neighbourhood', 'suburb', 'locality', 'sublocality'], target: 'edit_address_line_2' },
+            { source: ['pincode', 'postal_code', 'zip_code', 'postcode'], target: 'edit_postal_code' },
+        ];
+
+        fieldMappings.forEach(mapping => {
+            const field = document.getElementById(mapping.target);
+            if (field) {
+                const value = mapping.source.find(key => normalizedData[key]);
+                if (value && normalizedData[value]) {
+                    field.value = normalizedData[value];
+                    // Add visual feedback
+                    field.classList.add('border-success');
+                    setTimeout(() => field.classList.remove('border-success'), 3000);
+                }
+            }
+        });
+
+        // Handle PIN code with validation and enhanced data
+        const pincodeValue = normalizedData.pincode || normalizedData.postal_code || normalizedData.zip_code || normalizedData.postcode;
+        if (pincodeValue && /^\d{6}$/.test(pincodeValue)) {
+            const postalCodeField = document.getElementById('edit_postal_code');
+            if (postalCodeField) {
+                postalCodeField.value = pincodeValue;
+                postalCodeField.classList.add('border-success');
+                setTimeout(() => postalCodeField.classList.remove('border-success'), 3000);
+                
+                // Try to fill additional location data from pincode
+                try {
+                    console.log('Getting enhanced location data from pincode:', pincodeValue);
+                    const pincodeData = await fillEditLocationFromPincode(pincodeValue);
+                    
+                    // Merge pincode data with GPS data (pincode data takes priority for missing fields)
+                    if (pincodeData) {
+                        // Update normalized data with pincode results for better dropdown matching
+                        if (pincodeData.city && !normalizedData.city) {
+                            normalizedData.city = pincodeData.city;
+                            normalizedData.city_name = pincodeData.city;
+                            console.log('Updated city from pincode:', pincodeData.city);
+                        }
+                        if (pincodeData.state && !normalizedData.state) {
+                            normalizedData.state = pincodeData.state;
+                            normalizedData.state_name = pincodeData.state;
+                            console.log('Updated state from pincode:', pincodeData.state);
+                        }
+                        if (pincodeData.country && !normalizedData.country) {
+                            normalizedData.country = pincodeData.country;
+                            normalizedData.country_name = pincodeData.country;
+                            console.log('Updated country from pincode:', pincodeData.country);
+                        }
+                        if (pincodeData.area && !normalizedData.area) {
+                            normalizedData.area = pincodeData.area;
+                            console.log('Updated area from pincode:', pincodeData.area);
+                        }
+                    }
+                } catch (error) {
+                    console.warn('Edit pincode lookup failed:', error);
+                }
+            }
+        }
+
+        // Fill dropdowns with enhanced matching (now with merged pincode data)
+        await fillEditLocationDropdowns(normalizedData);
+
+        // Show success message
+        showSuccess('🎯 Edit form auto-filled with current location!');
+
+    } catch (error) {
+        console.error('Error applying location data to edit form:', error);
+        showError('⚠️ Location detected but edit form filling had issues: ' + error.message);
+    }
+}
+
+// Normalize location data for Edit form
+function normalizeLocationDataForEdit(locationData) {
+    const normalized = { ...locationData };
+    
+    // Same normalization logic as main form
+    if (locationData.country) {
+        normalized.country = locationData.country;
+        normalized.country_name = locationData.country;
+    }
+    if (locationData.country_code) {
+        normalized.country_code = locationData.country_code.toUpperCase();
+    }
+    
+    if (locationData.state || locationData.state_name) {
+        normalized.state = locationData.state || locationData.state_name;
+        normalized.state_name = normalized.state;
+    }
+    
+    if (locationData.city || locationData.city_name) {
+        normalized.city = locationData.city || locationData.city_name;
+        normalized.city_name = normalized.city;
+    }
+    
+    if (locationData.area || locationData.neighbourhood) {
+        normalized.area = locationData.area || locationData.neighbourhood;
+    }
+    
+    if (locationData.pincode || locationData.postal_code) {
+        const postal = locationData.pincode || locationData.postal_code;
+        normalized.pincode = postal;
+        normalized.postal_code = postal;
+    }
+    
+    return normalized;
+}
+
+// Fill edit location from pincode
+async function fillEditLocationFromPincode(pincode) {
+    try {
+        // Get country code from selected country in edit form
+        const countrySelect = document.getElementById('edit_country_id');
+        let countryCode = 'IN'; // Default to India
+        
+        if (countrySelect && countrySelect.value) {
+            const selectedOption = countrySelect.options[countrySelect.selectedIndex];
+            if (selectedOption) {
+                const countryName = selectedOption.textContent.trim().toLowerCase();
+                const countryMapping = {
+                    'india': 'IN',
+                    'united states': 'US',
+                    'usa': 'US',
+                    'united kingdom': 'GB',
+                    'uk': 'GB',
+                    'canada': 'CA',
+                    'australia': 'AU',
+                    'germany': 'DE',
+                    'france': 'FR'
+                };
+                
+                countryCode = countryMapping[countryName] || 'IN';
+            }
+        }
+        
+        // Use the same API as main form
+        const response = await fetch(`/api/pincode-details?pincode=${pincode}&country_code=${countryCode}`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            
+            if (data.success) {
+                const pincodeData = data.data;
+                console.log('Edit pincode data received:', pincodeData);
+                
+                // Fill edit form fields from pincode data
+                if (pincodeData.area) {
+                    const areaField = document.getElementById('edit_address_line_2');
+                    if (areaField && !areaField.value) {
+                        areaField.value = pincodeData.area;
+                    }
+                }
+                
+                showSuccess(`📮 PIN code ${pincode} validated for edit form!`);
+                return pincodeData; // Return the data for merging
+            }
+        }
+        
+        return null; // Return null if unsuccessful
+    } catch (error) {
+        console.error('Edit pincode lookup failed:', error);
+        throw error;
+    }
+}
+
+// Fill edit location dropdowns
+async function fillEditLocationDropdowns(locationData) {
+    try {
+        console.log('Filling edit dropdowns with location data:', locationData);
+
+        // Fill country dropdown with precise matching
+        const countrySelect = document.getElementById('edit_country_id');
+        if (countrySelect && (locationData.country || locationData.country_code)) {
+            const countrySearchTerms = [
+                locationData.country,
+                locationData.country_code,
+                locationData.country_name,
+            ].filter(Boolean);
+
+            for (const searchTerm of countrySearchTerms) {
+                const countryOption = Array.from(countrySelect.options).find(option => {
+                    const optionText = option.textContent.toLowerCase().trim();
+                    const searchLower = searchTerm.toLowerCase().trim();
+                    
+                    // Exact match first (most reliable)
+                    if (optionText === searchLower) {
+                        return true;
+                    }
+                    
+                    // Exact match with option value
+                    if (option.value === searchTerm) {
+                        return true;
+                    }
+                    
+                    // For country code matching (2-letter codes)
+                    if (searchTerm.length === 2 && option.dataset.countryCode === searchTerm.toUpperCase()) {
+                        return true;
+                    }
+                    
+                    // For full country names, use word boundary matching to avoid partial matches
+                    if (searchTerm.length > 2) {
+                        // Create word boundaries regex for exact word matching
+                        const wordBoundaryRegex = new RegExp(`\\b${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+                        return wordBoundaryRegex.test(optionText);
+                    }
+                    
+                    return false;
+                });
+                
+                if (countryOption) {
+                    console.log(`Edit country matched: "${searchTerm}" -> "${countryOption.textContent}"`);
+                    countrySelect.value = countryOption.value;
+                    
+                    // Load states
+                    await loadEditStates(countryOption.value);
+                    break;
+                }
+            }
+        }
+
+        // Wait for states to load
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Fill state dropdown
+        const stateSelect = document.getElementById('edit_state_id');
+        if (stateSelect && (locationData.state || locationData.state_name)) {
+            const stateSearchTerms = [
+                locationData.state,
+                locationData.state_name,
+            ].filter(Boolean);
+
+            for (const searchTerm of stateSearchTerms) {
+                const stateOption = Array.from(stateSelect.options).find(option => {
+                    const optionText = option.textContent.toLowerCase().trim();
+                    const searchLower = searchTerm.toLowerCase().trim();
+                    
+                    return optionText === searchLower || 
+                           optionText.includes(searchLower);
+                });
+                
+                if (stateOption) {
+                    console.log(`Edit state matched: "${searchTerm}" -> "${stateOption.textContent}"`);
+                    stateSelect.value = stateOption.value;
+                    
+                    // Load cities
+                    await loadEditCities(stateOption.value);
+                    break;
+                }
+            }
+        }
+
+        // Wait for cities to load
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Fill city dropdown
+        const citySelect = document.getElementById('edit_city_id');
+        if (citySelect && (locationData.city || locationData.city_name)) {
+            const citySearchTerms = [
+                locationData.city,
+                locationData.city_name,
+            ].filter(Boolean);
+
+            for (const searchTerm of citySearchTerms) {
+                const cityOption = Array.from(citySelect.options).find(option => {
+                    const optionText = option.textContent.toLowerCase().trim();
+                    const searchLower = searchTerm.toLowerCase().trim();
+                    
+                    return optionText === searchLower || 
+                           optionText.includes(searchLower);
+                });
+                
+                if (cityOption) {
+                    console.log(`Edit city matched: "${searchTerm}" -> "${cityOption.textContent}"`);
+                    citySelect.value = cityOption.value;
+                    break;
+                }
+            }
+        }
+
+    } catch (error) {
+        console.error('Error filling edit location dropdowns:', error);
+    }
+}
+
+// Try enhanced location fallback for Edit
+async function tryEnhancedLocationFallbackForEdit(latitude = null, longitude = null) {
+    try {
+        // If we have coordinates, try them first
+        if (latitude && longitude) {
+            const locationData = await getLocationDetailsFromCoordsForEdit(latitude, longitude);
+            if (locationData) {
+                await applyLocationDataToEditForm(locationData, {latitude, longitude});
+                showSuccess('✅ Location detected using fallback method!');
+                return;
+            }
+        }
+        
+        // Try IP-based location
+        await tryLocationFromIPForEdit();
+        
+    } catch (error) {
+        console.error('Enhanced fallback failed for edit:', error);
+        showError('⚠️ All location detection methods failed. Please fill the form manually.');
+    }
+}
+
+// Try location from IP for Edit
+async function tryLocationFromIPForEdit() {
+    try {
+        showSuccess('🌐 Trying to detect location from your internet connection...');
+        
+        const response = await fetch('/api/location-from-ip', {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            
+            if (data.success) {
+                await applyLocationDataToEditForm(data.data);
+                showSuccess('🌐 Location detected from your IP address and edit form filled!');
+            } else {
+                throw new Error(data.error || 'IP location failed');
+            }
+        } else {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        
+    } catch (error) {
+        console.error('IP location failed for edit:', error);
+        showError('⚠️ IP-based location detection failed. Please fill the edit form manually.');
+    }
+}
     </script>
 
     <script>
