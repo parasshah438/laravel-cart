@@ -43,4 +43,11 @@ return [
         'verification' => env('GOOGLE_SEARCH_CONSOLE_VERIFICATION'),
     ],
 
+    
+    'razorpay' => [
+        'key' => env('RAZORPAY_KEY'),
+        'secret' => env('RAZORPAY_SECRET'),
+        'webhook_secret' => env('RAZORPAY_WEBHOOK_SECRET'),
+        'skip_ssl_verification' => env('RAZORPAY_SKIP_SSL_VERIFICATION', false),
+    ],
 ];

@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\{ProfileController, CartController, WishlistController, FrontendController, ProductController, CheckoutController, AddressController, CategoryController, ReviewController, CompareController, SupportController, WishlistShareController, NotificationController};
+use App\Http\Controllers\{ProfileController, CartController, WishlistController, FrontendController, ProductController, CheckoutController, AddressController, CategoryController, ReviewController, CompareController, SupportController, WishlistShareController, NotificationController, PaymentController};
 
 
 Route::get('/', [FrontendController::class, 'index'])->name('front.index');
@@ -77,6 +77,7 @@ Route::prefix('api')->group(function() {
     Route::get('/postal-codes/city/{cityId}', [AddressController::class, 'getPostalCodesForCity']);
     Route::get('/postal-codes/state/{stateId}', [AddressController::class, 'getPostalCodesForState']);
     Route::get('/load-address/{id}', [AddressController::class, 'apiShow']);
+    Route::get('/shipping-time-slots/{method}', [CheckoutController::class, 'getTimeSlots']);
 });
 
 Route::middleware(['auth'])->group(function () {
@@ -144,6 +145,26 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/checkout/place-order', [CheckoutController::class, 'placeOrder'])->name('checkout.placeOrder');
         //Thank You page
         Route::get('/checkout/thank-you/{order?}', [CheckoutController::class, 'thankYou'])->name('checkout.thankyou');
+        
+        // ================================================================================================
+        // 💳 RAZORPAY PAYMENT ROUTES
+        // ================================================================================================
+        Route::prefix('payment')->name('payment.')->group(function() {
+            // Razorpay specific routes
+            Route::post('/razorpay/success', [CheckoutController::class, 'razorpaySuccess'])->name('razorpay.success');
+            Route::post('/razorpay/failure', [CheckoutController::class, 'razorpayFailure'])->name('razorpay.failure');
+            
+            // Payment management routes
+            Route::get('/config', [PaymentController::class, 'getRazorpayConfig'])->name('config');
+            Route::post('/verify', [PaymentController::class, 'verifyPayment'])->name('verify');
+            Route::get('/status/{order}', [PaymentController::class, 'getPaymentStatus'])->name('status');
+            Route::post('/refund/{order}', [PaymentController::class, 'initiateRefund'])->name('refund');
+            Route::get('/methods', [PaymentController::class, 'getPaymentMethods'])->name('methods');
+            Route::get('/test-connection', [PaymentController::class, 'testConnection'])->name('test');
+        });
+        
+        // Razorpay webhook (outside auth middleware)
+        Route::post('/webhook/razorpay', [CheckoutController::class, 'razorpayWebhook'])->name('webhook.razorpay');
         
         //TEST EMAIL ROUTE (Remove in production)
         Route::get('/test-order-email', function() {

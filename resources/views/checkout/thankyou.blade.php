@@ -289,6 +289,48 @@
                                 </div>
                             </div>
                         </div>
+                        
+                        @if($order)
+                            <!-- Payment Information -->
+                            <div class="col-md-6">
+                                <div class="feature-item">
+                                    <div class="feature-icon">
+                                        @if($order->isRazorpayPayment())
+                                            <i class="bi bi-credit-card"></i>
+                                        @else
+                                            <i class="bi bi-cash"></i>
+                                        @endif
+                                    </div>
+                                    <div class="text-start">
+                                        <small class="text-muted d-block">Payment Method</small>
+                                        <strong>{{ $order->payment_method_display }}</strong>
+                                        @if($order->isRazorpayPayment())
+                                            <div class="small">
+                                                <span class="badge {{ $order->payment_status_badge_class }} mt-1">
+                                                    {{ ucfirst($order->payment_status) }}
+                                                </span>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Payment Status for Razorpay -->
+                            @if($order->isRazorpayPayment() && $order->isPaid())
+                                <div class="col-md-6">
+                                    <div class="feature-item">
+                                        <div class="feature-icon">
+                                            <i class="bi bi-shield-check"></i>
+                                        </div>
+                                        <div class="text-start">
+                                            <small class="text-muted d-block">Payment ID</small>
+                                            <strong class="small">{{ $order->razorpay_payment_id ? substr($order->razorpay_payment_id, 0, 20) . '...' : 'Processing' }}</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endif
+                        @endif
+                        
                         <div class="col-md-6">
                             <div class="feature-item">
                                 <div class="feature-icon">
@@ -296,7 +338,7 @@
                                 </div>
                                 <div class="text-start">
                                     <small class="text-muted d-block">Estimated Delivery</small>
-                                    <strong>{{ $order ? $order->created_at->addDays(5)->format('M d, Y') : now()->addDays(5)->format('M d, Y') }}</strong>
+                                    <strong>{{ $order ? $order->delivery_date->format('M d, Y') : now()->addDays(5)->format('M d, Y') }}</strong>
                                 </div>
                             </div>
                         </div>
@@ -325,6 +367,26 @@
                                     <small>You saved:</small>
                                     <small>₹{{ number_format($order->discount, 2) }}</small>
                                 </div>
+                            @endif
+                            
+                            <!-- Payment Status Alert for Razorpay -->
+                            @if($order->isRazorpayPayment())
+                                @if($order->isPaid())
+                                    <div class="alert alert-success mt-3 mb-0">
+                                        <i class="bi bi-check-circle me-2"></i>
+                                        <strong>Payment Successful!</strong> Your payment has been processed securely.
+                                    </div>
+                                @elseif($order->isPaymentPending())
+                                    <div class="alert alert-warning mt-3 mb-0">
+                                        <i class="bi bi-clock me-2"></i>
+                                        <strong>Payment Processing:</strong> We're verifying your payment. You'll receive a confirmation shortly.
+                                    </div>
+                                @elseif($order->isPaymentFailed())
+                                    <div class="alert alert-danger mt-3 mb-0">
+                                        <i class="bi bi-exclamation-triangle me-2"></i>
+                                        <strong>Payment Failed:</strong> Please contact support or try placing a new order.
+                                    </div>
+                                @endif
                             @endif
                         </div>
                     @endif

@@ -1,291 +1,376 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Bootstrap 5 Example</title>
+    <title>Checkout - Secure Payment</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <!-- Glide.js CSS -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@glidejs/glide@3.6.0/dist/css/glide.core.min.css">
-    <!-- Glide.js Theme (Optional) -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@glidejs/glide@3.6.0/dist/css/glide.theme.min.css">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
-    <!-- Glide.js JS -->
-    <script src="https://cdn.jsdelivr.net/npm/@glidejs/glide@3.6.0/dist/glide.min.js"></script>
+    <!-- Razorpay Checkout Script -->
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </head>
 <body>
     <div class="container py-5">
-        <div class="mb-4">
-            <h5 class="mb-3">Select a Shipping Address</h5>
-            <div class="row g-4">
-                @if($user->addresses->isEmpty())
-                    @include('partials._address_form', [
-                    'countries' => $countries,
-                    'cartItems' => $cartItems,
-                    'savedItems' => $savedItems
-                    ])
-                @else
-                 {{-- Left Column: Address Selection --}}
-                <div class="col-md-7">
-                    <form method="POST" action="{{ route('checkout.address.select') }}" id="address-selection-form">
-                        @csrf
-                        
-                        {{-- Existing Addresses with Radio Selection --}}
-                        <div class="mb-4">
-                            <h6 class="mb-3">📋 Your Saved Addresses</h6>
-                            
-                            @foreach($user->addresses as $index => $address)
-                            <div class="card mb-3 address-card {{ $address->is_default ? 'border-primary' : '' }}" 
-                                 onclick="selectAddress({{ $address->id }})">
-                                <div class="card-body">
-                                    <div class="d-flex align-items-start">
-                                        {{-- Radio Button --}}
-                                        <div class="me-3 mt-1">
+        <div class="row">
+            <!-- Main Checkout Form -->
+            <div class="col-lg-8">
+                <form id="checkoutForm" action="{{ route('checkout.placeOrder') }}" method="POST">
+                    @csrf
+                    
+                    <!-- Address Selection Section -->
+                    <div class="card mb-4 shadow-sm">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">
+                                <i class="fas fa-map-marker-alt me-2"></i>
+                                Delivery Address
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            @if($user->addresses->isEmpty())
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    No delivery address found. Please add an address first.
+                                    <a href="{{ route('address.create') }}" class="btn btn-sm btn-primary ms-2">Add Address</a>
+                                </div>
+                                
+                                <!-- New Address Form -->
+                                <div id="new-address-form">
+                                    {{-- TEMPORARILY DISABLED TO FIX FORM SUBMISSION ISSUE --}}
+                                    {{-- @include('partials._address_form', ['countries' => $countries]) --}}
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        Please use the address management to add addresses before placing an order.
+                                        <a href="{{ route('address.create') }}" class="btn btn-primary">
+                                            <i class="fas fa-plus me-2"></i>Add Address Now
+                                        </a>
+                                    </div>
+                                </div>
+                            @else
+                                <!-- Existing Addresses -->
+                                <div class="row">
+                                    @foreach($user->addresses as $address)
+                                        <div class="col-md-6 mb-3">
                                             <input type="radio" 
-                                                   name="selected_address_id" 
+                                                   class="btn-check" 
+                                                   name="address_id" 
+                                                   id="address_{{ $address->id }}" 
                                                    value="{{ $address->id }}"
-                                                   id="address_{{ $address->id }}"
-                                                   class="form-check-input"
+                                                   form="checkoutForm"
                                                    {{ $address->is_default ? 'checked' : '' }}
-                                                   onchange="updateAddressSelection({{ $address->id }})">
-                                        </div>
-                                        
-                                        {{-- Address Details --}}
-                                        <div class="flex-grow-1">
-                                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                                <div>
-                                                    <strong class="text-primary">{{ $address->full_name }}</strong>
-                                                    <div class="d-flex gap-2 mt-1">
-                                                        {{-- Address Type Badge --}}
-                                                        <span class="badge bg-{{ $address->type == 'home' ? 'success' : ($address->type == 'work' ? 'info' : 'secondary') }}">
-                                                            {{ $address->type == 'home' ? '🏠 Home' : ($address->type == 'work' ? '🏢 Work' : '📍 Other') }}
-                                                        </span>
-                                                        
-                                                        {{-- Default Badge --}}
-                                                        @if($address->is_default)
-                                                            <span class="badge bg-primary">⭐ Default</span>
-                                                        @endif
-                                                        
-                                                        {{-- Custom Label --}}
-                                                        @if($address->label)
-                                                            <span class="badge bg-light text-dark">{{ $address->label }}</span>
-                                                        @endif
-                                                    </div>
+                                                   required>
+                                            <label class="btn btn-outline-secondary w-100 text-start p-3" for="address_{{ $address->id }}">
+                                                <div class="fw-bold">{{ $address->full_name }}</div>
+                                                <div class="text-muted small">
+                                                    {{ $address->address_line_1 }}<br>
+                                                    {{ $address->city->name ?? '' }}, {{ $address->state->name ?? '' }} {{ $address->postal_code }}<br>
+                                                    {{ $address->country->name ?? '' }}
                                                 </div>
-                                                
-                                                {{-- Action Buttons --}}
-                                                <div class="dropdown">
-                                                    <button class="btn btn-outline-secondary btn-sm dropdown-toggle" 
-                                                            type="button" data-bs-toggle="dropdown">
-                                                        ⚙️
-                                                    </button>
-
-                                                    <ul class="dropdown-menu dropdown-menu-end">
-                                                        <li>
-                                                            <a class="dropdown-item" href="javascript:void(0)" onclick="openEditModal({{ $address->id }})">
-                                                                ✏️ Edit
-                                                            </a>
-                                                        </li>
-                                                        @if(!$address->is_default)
-                                                        <li>
-                                                            <form action="{{ route('address.setDefault', $address->id) }}" method="POST" class="d-inline">
-                                                                @csrf
-                                                                <button class="dropdown-item" type="submit">
-                                                                    ⭐ Set as Default
-                                                                </button>
-                                                            </form>
-                                                        </li>
-                                                        @endif
-                                                        <li><hr class="dropdown-divider"></li>
-                                                        <li>
-                                                            <a class="dropdown-item text-danger" href="javascript:void(0)" 
-                                                               onclick="deleteAddress({{ $address->id }})">
-                                                                🗑️ Delete
-                                                            </a>
-                                                        </li>
-                                                    </ul>
+                                                <div class="text-primary small mt-1">
+                                                    <i class="fas fa-phone me-1"></i>{{ $address->phone_number }}
                                                 </div>
-                                            </div>
-                                            
-                                            {{-- Address Lines --}}
-                                            <div class="text-muted mb-2">
-                                                <div>📍 {{ $address->address_line_1 }}</div>
-                                                @if($address->address_line_2)
-                                                    <div>{{ $address->address_line_2 }}</div>
-                                                @endif
-                                                @if($address->landmark)
-                                                    <div><small>Near: {{ $address->landmark }}</small></div>
-                                                @endif
-                                                <div>
-                                                    {{ $address->city->name ?? '' }}, {{ $address->state->name ?? '' }} {{ $address->postal_code }}
-                                                </div>
-                                                <div>{{ $address->country->name ?? '' }}</div>
-                                            </div>
-                                            
-                                            {{-- Contact Info --}}
-                                            <div class="text-muted small">
-                                                📞 {{ $address->phone_number }}
-                                                @if($address->alternate_phone)
-                                                    , {{ $address->alternate_phone }}
-                                                @endif
-                                            </div>
-                                            
-                                            {{-- Delivery Instructions --}}
-                                            @if($address->delivery_instructions)
-                                                <div class="alert alert-info mt-2 mb-0 py-2">
-                                                    <small><strong>📝 Delivery Note:</strong> {{ $address->delivery_instructions }}</small>
-                                                </div>
-                                            @endif
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            @endforeach
-                        </div>
-                        
-                        {{-- Add New Address Option --}}
-                        <div class="card mb-3 border-dashed" onclick="toggleNewAddressForm()">
-                            <div class="card-body text-center py-4">
-                                <div class="text-primary">
-                                    <i class="fas fa-plus-circle fa-2x mb-2"></i>
-                                    <div><strong>➕ Add a New Address</strong></div>
-                                    <small class="text-muted">Add a new delivery address</small>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        {{-- New Address Form (Hidden by default) --}}
-                        <div id="new-address-form" class="d-none">
-                            <div class="card border-primary">
-                                <div class="card-header bg-primary text-white">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <span>📍 Add New Address</span>
-                                        <button type="button" class="btn-close btn-close-white" onclick="toggleNewAddressForm()"></button>
-                                    </div>
-                                </div>
-                                <div class="card-body">
-                                    @include('partials._address_form', ['countries' => $countries])
-                                </div>
-                            </div>
-                        </div>
-                        
-                        {{-- Continue Button --}}
-                        <div class="d-grid gap-2 mt-4">
-                            <button type="submit" class="btn btn-primary btn-lg" id="continue-btn">
-                                🚚 Deliver to This Address
-                            </button>
-                        </div>
-                    </form>
-                </div>
-
-                {{-- Right Column: Order Summary --}}
-                <div class="col-md-5">
-                    <div class="position-sticky" style="top: 20px;">
-                        {{-- Selected Address Summary --}}
-                        <div class="card mb-3" id="selected-address-summary">
-                            <div class="card-header">
-                                <h6 class="mb-0">📍 Delivery Address</h6>
-                            </div>
-                            <div class="card-body" id="address-summary-content">
-                                @php $defaultAddress = $user->addresses->where('is_default', true)->first() @endphp
-                                @if($defaultAddress)
-                                    <div class="text-muted">
-                                        <strong>{{ $defaultAddress->full_name }}</strong><br>
-                                        {{ $defaultAddress->address_line_1 }}<br>
-                                        {{ $defaultAddress->city->name ?? '' }}, {{ $defaultAddress->postal_code }}
-                                    </div>
-                                @endif
-                            </div>
-                        </div>
-                        
-                        {{-- ✅ PROFESSIONAL ORDER SUMMARY (With Applied Coupons) --}}
-                        <div class="card">
-                            <div class="card-header">
-                                <h6 class="mb-0">🛒 Your Order ({{ $cartItems->count() }} items)</h6>
-                            </div>
-                            <div class="card-body">
-                                {{-- Cart Items --}}
-                                @foreach($cartItems as $item)
-                                    @php $lineTotal = $item->price_at_time * $item->quantity; @endphp
-                                    <div class="d-flex justify-content-between align-items-center border-bottom py-2">
-                                        <div class="flex-grow-1">
-                                            <strong>{{ $item->product->name }}</strong><br>
-                                            <small class="text-muted">
-                                                ₹{{ number_format($item->price_at_time, 2) }} × {{ $item->quantity }}
-                                            </small>
-                                        </div>
-                                        <div class="text-end">
-                                            <span class="fw-bold">₹{{ number_format($lineTotal, 2) }}</span>
-                                        </div>
-                                    </div>
-                                @endforeach
-
-                                {{-- Price Breakdown --}}
-                                <div class="border-top pt-3 mt-3">
-                                    <div class="d-flex justify-content-between mb-2">
-                                        <span>Subtotal</span>
-                                        <span>₹{{ number_format($subtotal, 2) }}</span>
-                                    </div>
-                                    
-                                    {{-- ✅ APPLIED COUPON DISPLAY --}}
-                                    @if($appliedCoupon && $discount > 0)
-                                    <div class="d-flex justify-content-between mb-2 text-success">
-                                        <span>
-                                            <i class="fas fa-tags me-1"></i>Coupon Applied 
-                                            <strong>({{ $appliedCoupon->code }})</strong>
-                                            <br><small class="text-muted">{{ $appliedCoupon->title }}</small>
-                                        </span>
-                                        <span class="fw-bold">-₹{{ number_format($discount, 2) }}</span>
-                                    </div>
-                                    @endif
-                                    
-                                    <div class="d-flex justify-content-between mb-2">
-                                        <span>Shipping</span>
-                                        <span class="text-success">FREE</span>
-                                    </div>
-                                    
-                                    <hr>
-                                    <div class="d-flex justify-content-between fw-bold h5">
-                                        <span>Total Amount</span>
-                                        <span class="text-primary">₹{{ number_format($total, 2) }}</span>
-                                    </div>
-                                    
-                                    {{-- Savings Display --}}
-                                    @if($appliedCoupon && $discount > 0)
-                                    <div class="text-center">
-                                        <small class="badge bg-success">
-                                            <i class="fas fa-piggy-bank me-1"></i>You saved ₹{{ number_format($discount, 2) }}!
-                                        </small>
-                                    </div>
-                                    @endif
-                                </div>
-                            </div>
-                        </div>
-                            <!-- Payment Options and Place Order Form -->
-                            <form method="POST" action="{{ route('checkout.placeOrder') }}" class="mt-4">
-                                @csrf
-                                <div class="card mb-3">
-                                    <div class="card-header">
-                                        <h6 class="mb-0">💳 Payment Options</h6>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="radio" name="payment_method" id="cod" value="cod" checked>
-                                            <label class="form-check-label fw-bold" for="cod">
-                                                Cash on Delivery (COD)
                                             </label>
                                         </div>
+                                    @endforeach
+                                </div>
+                                
+                                <!-- Add New Address Option -->
+                                <div class="text-center mt-3">
+                                    <button type="button" class="btn btn-outline-primary" onclick="toggleNewAddressForm()">
+                                        <i class="fas fa-plus me-2"></i>Add New Address
+                                    </button>
+                                </div>
+                                
+                                <!-- New Address Form (Hidden) -->
+                                <div id="new-address-form" class="d-none mt-4">
+                                    <div class="card border-primary">
+                                        <div class="card-header bg-primary text-white">
+                                            <span>Add New Address</span>
+                                        </div>
+                                        <div class="card-body">
+                                            {{-- TEMPORARILY DISABLED TO FIX FORM SUBMISSION ISSUE --}}
+                                            {{-- @include('partials._address_form', ['countries' => $countries]) --}}
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-info-circle me-2"></i>
+                                                Please use the address management to add new addresses. 
+                                                <a href="{{ route('address.create') }}" class="btn btn-sm btn-primary ms-2">
+                                                    Manage Addresses
+                                                </a>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                                <button type="submit" class="btn btn-success btn-lg w-100">Place Order</button>
-                            </form>
+                            @endif
+                        </div>
+                    </div>
+
+                    <!-- Delivery Details Section -->
+                    <div class="card mb-4 shadow-sm">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0">
+                                <i class="fas fa-truck me-2"></i>
+                                Delivery Details
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <!-- Delivery Date Selection -->
+                            <div class="mb-4">
+                                <h6 class="fw-bold mb-3">Select Delivery Date</h6>
+                                <div class="row" id="deliveryDateOptions">
+                                    @foreach($deliveryDates as $index => $date)
+                                        <div class="col-md-4 col-sm-6 mb-3">
+                                            <input type="radio" 
+                                                   class="btn-check" 
+                                                   name="delivery_date" 
+                                                   id="date_{{ $index }}" 
+                                                   value="{{ $date['date'] }}"
+                                                   form="checkoutForm"
+                                                   {{ $index === 0 ? 'checked' : '' }}
+                                                   required>
+                                            <label class="btn btn-outline-primary w-100 py-3" for="date_{{ $index }}">
+                                                <div class="fw-bold">{{ $date['label'] }}</div>
+                                                <small class="text-muted">{{ $date['formatted'] }}</small>
+                                            </label>
+                                        </div>
+                                    @endforeach
+                                    
+                                    <!-- Custom Date Picker -->
+                                    <div class="col-md-4 col-sm-6 mb-3">
+                                        <input type="radio" 
+                                               class="btn-check" 
+                                               name="delivery_date" 
+                                               id="custom_date" 
+                                               value=""
+                                               form="checkoutForm">
+                                        <label class="btn btn-outline-primary w-100 py-3" for="custom_date">
+                                            <div class="fw-bold">Choose Date</div>
+                                            <small class="text-muted">Pick custom date</small>
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <!-- Custom Date Input -->
+                                <div id="customDatePicker" class="mt-3" style="display: none;">
+                                    <input type="date" 
+                                           class="form-control" 
+                                           name="custom_delivery_date"
+                                           id="custom_date_input" 
+                                           form="checkoutForm"
+                                           min="{{ date('Y-m-d') }}"
+                                           placeholder="Select date">
+                                </div>
+                                @error('delivery_date')
+                                    <div class="text-danger mt-2">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            <!-- Shipping Method Selection -->
+                            <div class="mb-4">
+                                <h6 class="fw-bold mb-3">Select Shipping Method</h6>
+                                <div class="row" id="shippingMethods">
+                                    @foreach($shippingMethods as $key => $method)
+                                        <div class="col-md-6 col-lg-3 mb-3">
+                                            <input type="radio" 
+                                                   class="btn-check shipping-method" 
+                                                   name="shipping_method" 
+                                                   id="shipping_{{ $key }}" 
+                                                   value="{{ $key }}"
+                                                   data-cost="{{ $method['cost'] }}"
+                                                   form="checkoutForm"
+                                                   {{ $key === 'standard' ? 'checked' : '' }}
+                                                   required>
+                                            <label class="btn btn-outline-success w-100 py-3 text-center" for="shipping_{{ $key }}">
+                                                <div class="mb-2">
+                                                    <i class="{{ $method['icon'] }} fa-2x text-primary"></i>
+                                                </div>
+                                                <div class="fw-bold">{{ $method['name'] }}</div>
+                                                <small class="text-muted d-block">{{ $method['description'] }}</small>
+                                                <div class="text-success fw-bold mt-1">₹{{ $method['cost'] }}</div>
+                                            </label>
+                                        </div>
+                                    @endforeach
+                                </div>
+                                @error('shipping_method')
+                                    <div class="text-danger mt-2">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            <!-- Time Slot Selection -->
+                            <div class="mb-4">
+                                <h6 class="fw-bold mb-3">Select Time Slot</h6>
+                                <div class="row" id="timeSlots">
+                                    <!-- Time slots will be loaded dynamically based on shipping method -->
+                                </div>
+                                @error('time_slot')
+                                    <div class="text-danger mt-2">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            <!-- Delivery Instructions -->
+                            <div class="mb-3">
+                                <label for="delivery_instructions" class="form-label fw-bold">Delivery Instructions (Optional)</label>
+                                <textarea class="form-control" 
+                                          id="delivery_instructions" 
+                                          name="delivery_instructions" 
+                                          rows="3" 
+                                          placeholder="Any special instructions for delivery (e.g., Ring bell, Call before delivery, etc.)"
+                                          maxlength="500">{{ old('delivery_instructions') }}</textarea>
+                                <div class="form-text">Maximum 500 characters</div>
+                                @error('delivery_instructions')
+                                    <div class="text-danger mt-2">{{ $message }}</div>
+                                @enderror
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Payment Method Section -->
+                    <div class="card mb-4 shadow-sm">
+                        <div class="card-header bg-warning text-dark">
+                            <h5 class="mb-0">
+                                <i class="fas fa-credit-card me-2"></i>
+                                Payment Method
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <!-- Cash on Delivery -->
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="radio" name="payment_method" id="cod" value="cod" checked>
+                                <label class="form-check-label fw-bold" for="cod">
+                                    <i class="fas fa-money-bill-wave me-2 text-success"></i>
+                                    Cash on Delivery (COD)
+                                </label>
+                                <div class="text-muted small mt-1">Pay when your order is delivered</div>
+                            </div>
+
+                            <!-- Razorpay Online Payment -->
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="radio" name="payment_method" id="razorpay" value="razorpay">
+                                <label class="form-check-label fw-bold" for="razorpay">
+                                    <i class="fas fa-credit-card me-2 text-primary"></i>
+                                    Online Payment (Razorpay)
+                                </label>
+                                <div class="text-muted small mt-1">Pay securely with Credit/Debit Card, Net Banking, UPI, Wallets</div>
+                                
+                                <!-- Payment Methods Icons -->
+                                <div class="mt-2 d-flex flex-wrap gap-2">
+                                    <span class="badge bg-light text-dark border"><i class="fab fa-cc-visa me-1"></i>Visa</span>
+                                    <span class="badge bg-light text-dark border"><i class="fab fa-cc-mastercard me-1"></i>MasterCard</span>
+                                    <span class="badge bg-light text-dark border"><i class="fas fa-university me-1"></i>Net Banking</span>
+                                    <span class="badge bg-light text-dark border"><i class="fas fa-mobile-alt me-1"></i>UPI</span>
+                                    <span class="badge bg-light text-dark border"><i class="fas fa-wallet me-1"></i>Wallets</span>
+                                </div>
+                                
+                                <!-- Razorpay Security Info -->
+                                <div class="mt-2 p-2 bg-light rounded">
+                                    <small class="text-muted">
+                                        <i class="fas fa-shield-alt text-success me-1"></i>
+                                        <strong>100% Secure:</strong> Your payment information is encrypted and secure. Powered by Razorpay.
+                                    </small>
+                                </div>
+                            </div>
+
+                            <!-- Security Badge -->
+                            <div class="mt-3 p-3 bg-success bg-opacity-10 rounded">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-lock fa-2x text-success me-3"></i>
+                                    <div>
+                                        <h6 class="mb-1 text-success">Secure Payment</h6>
+                                        <small class="text-muted">Your payment information is protected with 256-bit SSL encryption</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Place Order Button -->
+                    <div class="d-grid">
+                        <!-- Debug: Add hidden inputs to test -->
+                        <input type="hidden" name="debug_delivery_date" id="debug_delivery_date" value="">
+                        <input type="hidden" name="debug_shipping_method" id="debug_shipping_method" value="">
+                        <input type="hidden" name="debug_time_slot" id="debug_time_slot" value="">
+                        <input type="hidden" name="debug_address_id" id="debug_address_id" value="">
+                        
+                        <button type="submit" class="btn btn-primary btn-lg py-3" id="placeOrderBtn">
+                            <i class="fas fa-lock me-2"></i>
+                            Place Order Securely
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Order Summary Sidebar -->
+            <div class="col-lg-4">
+                <div class="card sticky-top shadow-sm" style="top: 20px;">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">Order Summary</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Cart Items -->
+                        <div class="order-items mb-3">
+                            @foreach($cartItems as $item)
+                                <div class="d-flex align-items-center mb-3 pb-3 border-bottom">
+                                    <img src="{{ $item->product->image_url ?? '/images/placeholder.jpg' }}" 
+                                         alt="{{ $item->product->name }}" 
+                                         class="rounded me-3" 
+                                         style="width: 60px; height: 60px; object-fit: cover;">
+                                    <div class="flex-grow-1">
+                                        <h6 class="mb-1">{{ $item->product->name }}</h6>
+                                        <small class="text-muted">Qty: {{ $item->quantity }}</small>
+                                    </div>
+                                    <div class="text-end">
+                                        <div class="fw-bold">₹{{ number_format($item->price_at_time * $item->quantity, 2) }}</div>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+
+                        <!-- Order Totals -->
+                        <div class="order-totals">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Subtotal:</span>
+                                <span>₹{{ number_format($subtotal, 2) }}</span>
+                            </div>
+                            
+                            @if($discount > 0)
+                                <div class="d-flex justify-content-between mb-2 text-success">
+                                    <span>Discount ({{ $appliedCoupon->code ?? '' }}):</span>
+                                    <span>-₹{{ number_format($discount, 2) }}</span>
+                                </div>
+                            @endif
+                            
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Shipping:</span>
+                                <span id="shippingCost">₹25.00</span>
+                            </div>
+                            
+                            <hr>
+                            
+                            <div class="d-flex justify-content-between fw-bold fs-5 text-primary">
+                                <span>Total:</span>
+                                <span id="grandTotal">₹{{ number_format($total + 25, 2) }}</span>
+                            </div>
+                        </div>
+
+                        <!-- Delivery Summary -->
+                        <div class="delivery-summary mt-4 p-3 bg-light rounded">
+                            <h6 class="fw-bold mb-2">Delivery Summary</h6>
+                            <div class="small">
+                                <div class="mb-1">
+                                    <strong>Date:</strong> <span id="selectedDate">{{ $deliveryDates[0]['formatted'] ?? 'Not selected' }}</span>
+                                </div>
+                                <div class="mb-1">
+                                    <strong>Method:</strong> <span id="selectedMethod">Standard Delivery</span>
+                                </div>
+                                <div>
+                                    <strong>Time:</strong> <span id="selectedTime">Not selected</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                @endif
             </div>
         </div>
     </div>
@@ -1380,6 +1465,533 @@ function toggleNewAddressForm() {
 .dropdown-toggle::after {
     display: none;
 }
+
+/* New Delivery Styles */
+.btn-check:checked + .btn-outline-primary {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    color: white;
+}
+
+.btn-check:checked + .btn-outline-success {
+    background-color: #198754;
+    border-color: #198754;
+    color: white;
+}
+
+.btn-check:checked + .btn-outline-secondary {
+    background-color: #6c757d;
+    border-color: #6c757d;
+    color: white;
+}
+
+.btn-check:checked + .btn-outline-warning {
+    background-color: #ffc107;
+    border-color: #ffc107;
+    color: black;
+}
+
+.sticky-top {
+    z-index: 1020;
+}
+
+.order-items {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.card {
+    border: none;
+    border-radius: 12px;
+}
+
+.card-header {
+    border-radius: 12px 12px 0 0 !important;
+}
+
+.btn {
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.form-control, .form-select {
+    border-radius: 8px;
+    border: 2px solid #e9ecef;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
 </style>
+
+<!-- Enhanced Delivery JavaScript -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Time slots for each shipping method
+    const timeSlots = @json(collect($shippingMethods)->map(function($method, $key) { 
+        return app(App\Http\Controllers\CheckoutController::class)->getTimeSlots($key); 
+    }));
+    
+    // Initialize time slots for default shipping method
+    updateTimeSlots('standard');
+    
+    // Handle custom date selection
+    const customDateRadio = document.getElementById('custom_date');
+    const customDatePicker = document.getElementById('customDatePicker');
+    const customDateInput = document.getElementById('custom_date_input');
+    
+    // Show/hide custom date picker
+    document.querySelectorAll('input[name="delivery_date"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            console.log('Delivery date changed to:', this.value);
+            
+            // Update debug field
+            document.getElementById('debug_delivery_date').value = this.value;
+            
+            if (this.id === 'custom_date') {
+                customDatePicker.style.display = 'block';
+                customDateInput.required = true;
+                updateDeliverySummary();
+            } else {
+                customDatePicker.style.display = 'none';
+                customDateInput.required = false;
+                customDateInput.value = '';
+                updateDeliverySummary();
+            }
+        });
+    });
+    
+    // Handle custom date input
+    if (customDateInput) {
+        customDateInput.addEventListener('change', function() {
+            if (this.value) {
+                customDateRadio.value = this.value;
+                updateDeliverySummary();
+            }
+        });
+    }
+    
+    // Handle shipping method change
+    document.querySelectorAll('.shipping-method').forEach(radio => {
+        radio.addEventListener('change', function() {
+            console.log('Shipping method changed to:', this.value);
+            
+            // Update debug field
+            document.getElementById('debug_shipping_method').value = this.value;
+            
+            updateTimeSlots(this.value);
+            updateShippingCost(this.value);
+            updateDeliverySummary();
+        });
+    });
+    
+    // Handle time slot selection
+    document.addEventListener('change', function(e) {
+        if (e.target.name === 'time_slot') {
+            console.log('Time slot changed to:', e.target.value);
+            
+            // Update debug field
+            document.getElementById('debug_time_slot').value = e.target.value;
+            
+            updateDeliverySummary();
+        }
+        
+        // Handle address selection
+        if (e.target.name === 'address_id') {
+            console.log('Address changed to:', e.target.value);
+            
+            // Update debug field
+            document.getElementById('debug_address_id').value = e.target.value;
+        }
+    });
+    
+    function updateTimeSlots(shippingMethod) {
+        const timeSlotsContainer = document.getElementById('timeSlots');
+        const slots = timeSlots[shippingMethod] || [];
+        
+        let html = '';
+        slots.forEach((slot, index) => {
+            html += `
+                <div class="col-md-6 mb-2">
+                    <input type="radio" 
+                           class="btn-check" 
+                           name="time_slot" 
+                           id="time_${shippingMethod}_${index}" 
+                           value="${slot}"
+                           form="checkoutForm"
+                           ${index === 0 ? 'checked' : ''}
+                           required>
+                    <label class="btn btn-outline-warning w-100" for="time_${shippingMethod}_${index}">
+                        ${slot}
+                    </label>
+                </div>
+            `;
+        });
+        
+        timeSlotsContainer.innerHTML = html;
+        
+        // Update delivery summary after time slots are updated
+        setTimeout(updateDeliverySummary, 100);
+    }
+    
+    function updateShippingCost(shippingMethod) {
+        const costs = {
+            'morning': 50,
+            'standard': 25,
+            'express': 100,
+            'midnight': 75
+        };
+        
+        const cost = costs[shippingMethod] || 25;
+        const shippingCostElement = document.getElementById('shippingCost');
+        if (shippingCostElement) {
+            shippingCostElement.textContent = `₹${cost.toFixed(2)}`;
+        }
+        
+        // Update grand total
+        const subtotal = {{ $subtotal }};
+        const discount = {{ $discount }};
+        const grandTotal = subtotal - discount + cost;
+        const grandTotalElement = document.getElementById('grandTotal');
+        if (grandTotalElement) {
+            grandTotalElement.textContent = `₹${grandTotal.toFixed(2)}`;
+        }
+    }
+    
+    function updateDeliverySummary() {
+        // Update selected date
+        const selectedDateRadio = document.querySelector('input[name="delivery_date"]:checked');
+        const selectedDateElement = document.getElementById('selectedDate');
+        
+        if (selectedDateRadio && selectedDateElement) {
+            let dateText = '';
+            if (selectedDateRadio.id === 'custom_date' && customDateInput && customDateInput.value) {
+                const date = new Date(customDateInput.value);
+                dateText = date.toLocaleDateString('en-US', { 
+                    month: 'short', 
+                    day: 'numeric', 
+                    year: 'numeric' 
+                });
+            } else if (selectedDateRadio.id !== 'custom_date') {
+                const labelElement = selectedDateRadio.nextElementSibling.querySelector('.fw-bold');
+                const formattedElement = selectedDateRadio.nextElementSibling.querySelector('.text-muted');
+                if (labelElement && formattedElement) {
+                    const label = labelElement.textContent;
+                    const formatted = formattedElement.textContent;
+                    dateText = `${label} (${formatted})`;
+                }
+            }
+            selectedDateElement.textContent = dateText || 'Not selected';
+        }
+        
+        // Update selected method
+        const selectedMethodRadio = document.querySelector('input[name="shipping_method"]:checked');
+        const selectedMethodElement = document.getElementById('selectedMethod');
+        
+        if (selectedMethodRadio && selectedMethodElement) {
+            const methodElement = selectedMethodRadio.nextElementSibling.querySelector('.fw-bold');
+            if (methodElement) {
+                const methodText = methodElement.textContent;
+                selectedMethodElement.textContent = methodText;
+            }
+        }
+        
+        // Update selected time
+        const selectedTimeRadio = document.querySelector('input[name="time_slot"]:checked');
+        const selectedTimeElement = document.getElementById('selectedTime');
+        
+        if (selectedTimeRadio && selectedTimeElement) {
+            selectedTimeElement.textContent = selectedTimeRadio.value;
+        }
+    }
+    
+    // Form validation with debugging and Razorpay payment handling
+    const checkoutForm = document.getElementById('checkoutForm');
+    if (checkoutForm) {
+        // DEBUG: Log form structure
+        console.log('Checkout form found:', checkoutForm);
+        console.log('Form action:', checkoutForm.action);
+        console.log('Form method:', checkoutForm.method);
+        
+        // DEBUG: Check payment method inputs
+        const paymentInputs = checkoutForm.querySelectorAll('input[name="payment_method"]');
+        console.log('Payment method inputs found:', paymentInputs.length);
+        paymentInputs.forEach((input, index) => {
+            console.log(`Payment input ${index}:`, input.value, input.checked);
+        });
+        
+        checkoutForm.addEventListener('submit', function(e) {
+            console.log('Form submit triggered'); // Debug
+            
+            // Check payment method
+            const selectedPaymentMethod = document.querySelector('input[name="payment_method"]:checked')?.value;
+            console.log('Selected payment method:', selectedPaymentMethod);
+            
+            // If Razorpay is selected, prevent form submission and handle payment
+            if (selectedPaymentMethod === 'razorpay') {
+                e.preventDefault(); // Prevent form submission
+                console.log('Razorpay payment selected, preventing form submission');
+                
+                // Validate form before payment
+                if (validateForm()) {
+                    initiateRazorpayPayment();
+                } else {
+                    console.log('Form validation failed');
+                }
+                return;
+            }
+            
+            // For COD, continue with normal form submission
+            console.log('COD payment selected, allowing form submission');
+            
+            // Log all form data before submission
+            const formData = new FormData(this);
+            console.log('Form data being submitted:');
+            for (let [key, value] of formData.entries()) {
+                console.log(`${key}: ${value}`);
+            }
+            
+            // Also check actual field values
+            console.log('Field value checks:');
+            console.log('delivery_date value:', document.querySelector('input[name="delivery_date"]:checked')?.value);
+            console.log('address_id value:', document.querySelector('input[name="address_id"]:checked')?.value);
+            console.log('shipping_method value:', document.querySelector('input[name="shipping_method"]:checked')?.value);
+            console.log('time_slot value:', document.querySelector('input[name="time_slot"]:checked')?.value);
+            console.log('custom_delivery_date value:', document.querySelector('input[name="custom_delivery_date"]')?.value);
+            
+            // TEMPORARILY DISABLED - Let form submit without validation
+            console.log('Allowing form submission without client-side validation...');
+        });
+    }
+    
+    // Initial setup
+    updateDeliverySummary();
+    
+    // Debug: Add click handler to place order button
+    const placeOrderBtn = document.getElementById('placeOrderBtn');
+    if (placeOrderBtn) {
+        placeOrderBtn.addEventListener('click', function(e) {
+            console.log('Place Order button clicked');
+            console.log('Button type:', placeOrderBtn.type);
+            console.log('Form element:', checkoutForm);
+            
+            // Check payment method before form submission
+            const selectedPaymentMethod = document.querySelector('input[name="payment_method"]:checked')?.value;
+            console.log('Selected payment method:', selectedPaymentMethod);
+            
+            // If Razorpay is selected, handle payment separately
+            if (selectedPaymentMethod === 'razorpay') {
+                e.preventDefault();
+                if (validateForm()) {
+                    initiateRazorpayPayment();
+                }
+                return;
+            }
+            
+            // For COD, try to manually trigger form submission if needed
+            if (checkoutForm) {
+                console.log('Manually submitting form for COD...');
+                checkoutForm.submit();
+            }
+        });
+    }
+});
+
+// ================================================================================================
+// 💳 RAZORPAY PAYMENT FUNCTIONS
+// ================================================================================================
+
+/**
+ * Validate form before payment
+ */
+function validateForm() {
+    const requiredFields = [
+        'address_id',
+        'delivery_date',
+        'shipping_method',
+        'time_slot'
+    ];
+    
+    let isValid = true;
+    const errors = [];
+    
+    requiredFields.forEach(field => {
+        let fieldValue;
+        
+        if (field === 'delivery_date') {
+            const selectedDate = document.querySelector('input[name="delivery_date"]:checked');
+            if (selectedDate) {
+                if (selectedDate.id === 'custom_date') {
+                    fieldValue = document.querySelector('input[name="custom_delivery_date"]')?.value;
+                } else {
+                    fieldValue = selectedDate.value;
+                }
+            }
+        } else {
+            const fieldElement = document.querySelector(`input[name="${field}"]:checked`);
+            fieldValue = fieldElement ? fieldElement.value : null;
+        }
+        
+        if (!fieldValue) {
+            isValid = false;
+            errors.push(`Please select ${field.replace('_', ' ')}`);
+        }
+    });
+    
+    if (!isValid) {
+        showError('Please fill all required fields: ' + errors.join(', '));
+    }
+    
+    return isValid;
+}
+
+/**
+ * Initiate Razorpay payment
+ */
+function initiateRazorpayPayment() {
+    try {
+        console.log('Starting Razorpay payment process...');
+        
+        // Show loading
+        const placeOrderBtn = document.getElementById('placeOrderBtn');
+        placeOrderBtn.disabled = true;
+        placeOrderBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Processing Payment...';
+        
+        // For Razorpay, simply submit the form normally since the backend
+        // will redirect to the payment page
+        console.log('Submitting form for Razorpay payment...');
+        document.getElementById('checkoutForm').submit();
+        
+    } catch (error) {
+        console.error('Razorpay payment error:', error);
+        showError('Payment failed: ' + error.message);
+        
+        // Reset button
+        const placeOrderBtn = document.getElementById('placeOrderBtn');
+        placeOrderBtn.disabled = false;
+        placeOrderBtn.innerHTML = '<i class="fas fa-lock me-2"></i>Place Order Securely';
+    }
+}
+
+/**
+ * Handle Razorpay payment success
+ */
+function handleRazorpaySuccess(response) {
+    console.log('Razorpay payment successful:', response);
+    
+    // Submit payment details to backend for verification
+    const verificationData = {
+        razorpay_payment_id: response.razorpay_payment_id,
+        razorpay_order_id: response.razorpay_order_id,
+        razorpay_signature: response.razorpay_signature,
+        _token: document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+    };
+    
+    fetch('{{ route("payment.razorpay.success") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': verificationData._token,
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify(verificationData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showSuccess('Payment successful! Redirecting to confirmation page...');
+            
+            // Redirect to thank you page
+            setTimeout(() => {
+                window.location.href = data.redirect_url || '{{ route("checkout.thankyou") }}';
+            }, 2000);
+        } else {
+            throw new Error(data.message || 'Payment verification failed');
+        }
+    })
+    .catch(error => {
+        console.error('Payment verification error:', error);
+        showError('Payment verification failed: ' + error.message);
+    });
+}
+
+/**
+ * Handle Razorpay payment failure
+ */
+function handleRazorpayFailure(response) {
+    console.error('Razorpay payment failed:', response);
+    
+    // Submit failure details to backend
+    const failureData = {
+        error: response.error,
+        _token: document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+    };
+    
+    fetch('{{ route("payment.razorpay.failure") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': failureData._token,
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify(failureData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        showError(data.message || 'Payment failed. Please try again.');
+    })
+    .catch(error => {
+        console.error('Payment failure handling error:', error);
+        showError('Payment failed. Please try again.');
+    });
+    
+    // Reset place order button
+    const placeOrderBtn = document.getElementById('placeOrderBtn');
+    placeOrderBtn.disabled = false;
+    placeOrderBtn.innerHTML = '<i class="fas fa-lock me-2"></i>Place Order Securely';
+}
+
+// ================================================================================================
+// 🚨 HELPER FUNCTIONS
+// ================================================================================================
+
+/**
+ * Show success message
+ */
+function showSuccess(message) {
+    Toastify({
+        text: message,
+        duration: 4000,
+        gravity: "top",
+        position: "right",
+        style: {
+            background: "#28a745"
+        },
+        stopOnFocus: true,
+    }).showToast();
+}
+
+/**
+ * Show error message
+ */
+function showError(message) {
+    Toastify({
+        text: message,
+        duration: 6000,
+        gravity: "top",
+        position: "right",
+        style: {
+            background: "#dc3545"
+        },
+        stopOnFocus: true,
+    }).showToast();
+}
+</script>
 </body>
 </html>

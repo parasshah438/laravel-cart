@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Admin\AdminSupportController;
+use App\Http\Controllers\Admin\PaymentController;
 
 /*
 |--------------------------------------------------------------------------
@@ -13,6 +14,23 @@ use App\Http\Controllers\Admin\AdminSupportController;
 | contains the "web" middleware group and admin authentication.
 |
 */
+
+// ================================================================================================
+// 💳 ADMIN PAYMENT MANAGEMENT SYSTEM
+// ================================================================================================
+Route::prefix('admin/payments')->name('admin.payments.')->middleware(['auth'])->group(function () {
+    
+    // Payment Analytics Dashboard
+    Route::get('/dashboard', [PaymentController::class, 'dashboard'])->name('dashboard');
+    
+    // Payment Management
+    Route::get('/', [PaymentController::class, 'index'])->name('index');
+    Route::get('/{payment}', [PaymentController::class, 'show'])->name('show');
+    
+    // Export & Analytics
+    Route::get('/export/csv', [PaymentController::class, 'export'])->name('export');
+    Route::get('/analytics/api', [PaymentController::class, 'analyticsApi'])->name('analytics.api');
+});
 
 // ================================================================================================
 // 🛠️ ADMIN SUPPORT SYSTEM (Staff/Agent Management)

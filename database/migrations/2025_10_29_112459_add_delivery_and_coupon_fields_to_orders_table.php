@@ -12,6 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('orders', function (Blueprint $table) {
+            // Add coupon fields
             $table->string('coupon_code')->nullable()->after('grand_total');
             $table->string('coupon_title')->nullable()->after('coupon_code');
             $table->decimal('coupon_discount', 8, 2)->default(0)->after('coupon_title');
@@ -24,7 +25,11 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('orders', function (Blueprint $table) {
-            $table->dropColumn(['coupon_code', 'coupon_title', 'coupon_discount']);
+            $table->dropColumn([
+                'coupon_code', 
+                'coupon_title', 
+                'coupon_discount'
+            ]);
         });
     }
 };
