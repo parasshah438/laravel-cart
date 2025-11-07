@@ -84,18 +84,118 @@ Route::prefix('admin/support')->name('admin.support.')->middleware(['auth'])->gr
     Route::post('/settings', [AdminSupportController::class, 'updateSettings'])->name('settings.update');
 });
 
-// ================================================================================================
-// 🔐 ADMIN AUTHENTICATION & PERMISSIONS
-// ================================================================================================
-Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () {
+    // ================================================================================================
+    // 🔐 ADMIN AUTHENTICATION & PERMISSIONS
+    // ================================================================================================
+    Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () {
+        
+        // Admin Dashboard
+        Route::get('/', function () {
+            return view('admin.dashboard');
+        })->name('dashboard');
+        
+        // ================================================================================================
+        // 📦 ORDER MANAGEMENT SYSTEM
+        // ================================================================================================
+        Route::prefix('orders')->name('orders.')->group(function () {
+            // Order Dashboard & Analytics
+            Route::get('/dashboard', [\App\Http\Controllers\Admin\AdminOrderController::class, 'dashboard'])->name('dashboard');
+            Route::get('/analytics', [\App\Http\Controllers\Admin\AdminOrderController::class, 'analytics'])->name('analytics');
+            
+            // Main Order Management
+            Route::get('/', [\App\Http\Controllers\Admin\AdminOrderController::class, 'index'])->name('index');
+            Route::get('/{order}', [\App\Http\Controllers\Admin\AdminOrderController::class, 'show'])->name('show');
+            Route::post('/export', [\App\Http\Controllers\Admin\AdminOrderController::class, 'export'])->name('export');
+            
+            // Order Status Management
+            Route::post('/{order}/update-status', [\App\Http\Controllers\Admin\AdminOrderController::class, 'updateStatus'])->name('update-status');
+            Route::post('/{order}/cancel', [\App\Http\Controllers\Admin\AdminOrderController::class, 'cancel'])->name('cancel');
+            
+            // COD Order Management
+            Route::prefix('cod')->name('cod.')->group(function () {
+                Route::get('/pending', [\App\Http\Controllers\Admin\AdminOrderController::class, 'pendingCod'])->name('pending');
+                Route::post('/{order}/confirm', [\App\Http\Controllers\Admin\AdminOrderController::class, 'confirmCod'])->name('confirm');
+                Route::post('/bulk-confirm', [\App\Http\Controllers\Admin\AdminOrderController::class, 'bulkConfirmCod'])->name('bulk-confirm');
+            });
+            
+            // Bulk Actions
+            Route::post('/bulk-update-status', [\App\Http\Controllers\Admin\AdminOrderController::class, 'bulkUpdateStatus'])->name('bulk-update-status');
+            Route::post('/bulk-cancel', [\App\Http\Controllers\Admin\AdminOrderController::class, 'bulkCancel'])->name('bulk-cancel');
+        });
+        
+        // User Management (for role assignments)
+        Route::get('/users', [AdminSupportController::class, 'users'])->name('users');
+        Route::post('/users/{user}/role', [AdminSupportController::class, 'updateUserRole'])->name('users.role');
     
-    // Admin Dashboard
-    Route::get('/', function () {
-        return view('admin.dashboard');
-    })->name('dashboard');
+    // ================================================================================================
+    // 📦 PRODUCT MANAGEMENT WITH IMAGE OPTIMIZATION
+    // ================================================================================================
+    Route::prefix('products')->name('products.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\ProductController::class, 'index'])->name('index');
+        Route::get('/create', [\App\Http\Controllers\ProductController::class, 'create'])->name('create');
+        Route::post('/', [\App\Http\Controllers\ProductController::class, 'store'])->name('store');
+        Route::get('/{product}/edit', [\App\Http\Controllers\ProductController::class, 'edit'])->name('edit');
+        Route::put('/{product}', [\App\Http\Controllers\ProductController::class, 'update'])->name('update');
+        Route::delete('/{product}', [\App\Http\Controllers\ProductController::class, 'destroy'])->name('destroy');
+        
+        // Image upload AJAX endpoints
+        Route::post('/upload-image-preview', [\App\Http\Controllers\ProductController::class, 'uploadImagePreview'])->name('upload.preview');
+    });
     
-    // User Management (for role assignments)
-    Route::get('/users', [AdminSupportController::class, 'users'])->name('users');
-    Route::post('/users/{user}/role', [AdminSupportController::class, 'updateUserRole'])->name('users.role');
+    // ================================================================================================
+    // 🏷️ CATEGORY MANAGEMENT WITH IMAGE OPTIMIZATION
+    // ================================================================================================
+    Route::prefix('categories')->name('categories.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\CategoryController::class, 'index'])->name('index');
+        Route::get('/create', [\App\Http\Controllers\CategoryController::class, 'create'])->name('create');
+        Route::post('/', [\App\Http\Controllers\CategoryController::class, 'store'])->name('store');
+        Route::get('/{category}', [\App\Http\Controllers\CategoryController::class, 'show'])->name('show');
+        Route::get('/{category}/edit', [\App\Http\Controllers\CategoryController::class, 'edit'])->name('edit');
+        Route::put('/{category}', [\App\Http\Controllers\CategoryController::class, 'update'])->name('update');
+        Route::delete('/{category}', [\App\Http\Controllers\CategoryController::class, 'destroy'])->name('destroy');
+        
+        // AJAX endpoints
+        Route::post('/upload-image-preview', [\App\Http\Controllers\CategoryController::class, 'uploadImagePreview'])->name('upload.preview');
+        Route::post('/reorder', [\App\Http\Controllers\CategoryController::class, 'reorder'])->name('reorder');
+    });
+    
+    // ================================================================================================
+    // 🚚 SHIPPING MANAGEMENT SYSTEM
+    // ================================================================================================
+    
+    // Shipments Management (Direct routes under admin namespace)
+    Route::resource('shipments', \App\Http\Controllers\Admin\ShipmentController::class);
+    Route::post('shipments/{shipment}/update-status', [\App\Http\Controllers\Admin\ShipmentController::class, 'updateStatus'])
+        ->name('shipments.update-status');
+    Route::post('shipments/{shipment}/generate-label', [\App\Http\Controllers\Admin\ShipmentController::class, 'generateLabel'])
+        ->name('shipments.generate-label');
+    Route::get('shipments/{shipment}/tracking', [\App\Http\Controllers\Admin\ShipmentController::class, 'tracking'])
+        ->name('shipments.tracking');
+    
+    // Orders ready for shipment
+    Route::get('shipments/ready-orders', [\App\Http\Controllers\Admin\ShipmentController::class, 'readyOrders'])
+        ->name('shipments.ready-orders');
+    
+    // Bulk Actions
+    Route::post('shipments/bulk-update-status', [\App\Http\Controllers\Admin\ShipmentController::class, 'bulkUpdateStatus'])
+        ->name('shipments.bulk-update-status');
+    Route::post('shipments/bulk-generate-labels', [\App\Http\Controllers\Admin\ShipmentController::class, 'bulkGenerateLabels'])
+        ->name('shipments.bulk-generate-labels');
+    
+    // Shipping Analytics (Enhanced shipping system)
+    Route::prefix('shipping')->name('shipping.')->group(function () {
+        Route::get('analytics', [\App\Http\Controllers\Admin\ShippingAnalyticsController::class, 'index'])
+            ->name('analytics.index');
+        Route::get('analytics/carrier-performance', [\App\Http\Controllers\Admin\ShippingAnalyticsController::class, 'carrierPerformance'])
+            ->name('analytics.carrier-performance');
+        Route::get('analytics/cost-optimization', [\App\Http\Controllers\Admin\ShippingAnalyticsController::class, 'costOptimization'])
+            ->name('analytics.cost-optimization');
+        Route::get('analytics/shipment-analysis', [\App\Http\Controllers\Admin\ShippingAnalyticsController::class, 'shipmentAnalysis'])
+            ->name('analytics.shipment-analysis');
+        
+        // Shipping Carriers Management (future feature)
+        // Route::resource('carriers', \App\Http\Controllers\Admin\ShippingCarrierController::class);
+        // Route::resource('methods', \App\Http\Controllers\Admin\ShippingMethodController::class);
+    });
     
 });

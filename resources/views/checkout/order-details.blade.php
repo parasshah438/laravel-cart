@@ -349,7 +349,7 @@
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
                                         <h6 class="mb-1">Delivered</h6>
-                                        <small class="text-muted">{{ ($order->status ?? 'pending') === 'delivered' ? 'Jan 18, 2024 - 4:45 PM' : 'Estimated: Jan 20, 2024' }}</small>
+                                        <small class="text-muted">{{ ($order->status ?? 'pending') === 'delivered' ? ($order->delivered_at ? $order->delivered_at->format('M d, Y - g:i A') : 'Delivered') : 'Estimated: ' . ($order->delivery_date ? $order->delivery_date->format('M d, Y') : now()->addDays(3)->format('M d, Y')) }}</small>
                                     </div>
                                     @if(($order->status ?? 'pending') === 'delivered')
                                         <i class="fas fa-check-circle text-success"></i>

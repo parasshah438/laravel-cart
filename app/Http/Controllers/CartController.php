@@ -531,10 +531,23 @@ class CartController extends Controller
                 return response()->json(['success' => false, 'errors' => $validator->errors()]);
             }
 
-            // Store image
+            // Store and optimize image
             $image = $request->file('customized_image');
-            $filename = 'customized_' . time() . '_' . uniqid() . '.png';
-            $path = $image->storeAs('customizations', $filename, 'public');
+            
+            // Use enhanced ImageOptimizer
+            $optimizedImages = \App\Helpers\ImageOptimizer::optimizeUploadedImage(
+                $image, 
+                'customizations',
+                [
+                    'quality' => 90,
+                    'maxWidth' => 1200,
+                    'maxHeight' => 1200,
+                    'generateWebP' => true,
+                    'generateThumbnails' => true,
+                    'thumbnailSizes' => [300, 600]
+                ]
+            );
+            $path = $optimizedImages['optimized'];
 
             // Save to database (optional)
             // $customization = new ProductCustomization();

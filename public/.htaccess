@@ -23,3 +23,10 @@
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L]
 </IfModule>
+
+# Increase file upload limits for image optimization
+php_value upload_max_filesize 10M
+php_value post_max_size 12M
+php_value memory_limit 512M
+php_value max_execution_time 120
+php_value max_input_time 120

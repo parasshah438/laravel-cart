@@ -404,12 +404,17 @@ class CheckoutController extends Controller
             return back()->with('error', 'Return period has expired. Orders can only be returned within 30 days of delivery.');
         }
 
-        // Create return request (you would need a returns table)
-        // For now, we'll add a note to the order
+        // Create return request - properly handle notes array
+        $currentNotes = $order->notes ?? [];
+        $currentNotes['return_request'] = [
+            'requested_at' => now()->format('Y-m-d H:i:s'),
+            'reason' => $request->reason,
+            'status' => 'pending',
+            'requested_by' => auth()->id()
+        ];
+        
         $order->update([
-            'notes' => ($order->notes ? $order->notes . "\n" : '') . 
-                      "Return requested on " . now()->format('Y-m-d H:i:s') . 
-                      ". Reason: " . $request->reason
+            'notes' => $currentNotes
         ]);
 
         return back()->with('success', 'Return request submitted successfully. We will contact you within 2-3 business days.');
@@ -439,12 +444,18 @@ class CheckoutController extends Controller
             return back()->with('error', 'Exchange period has expired. Orders can only be exchanged within 15 days of delivery.');
         }
 
-        // Create exchange request
+        // Create exchange request - properly handle notes array
+        $currentNotes = $order->notes ?? [];
+        $currentNotes['exchange_request'] = [
+            'requested_at' => now()->format('Y-m-d H:i:s'),
+            'reason' => $request->reason,
+            'exchange_reason' => $request->exchange_reason,
+            'status' => 'pending',
+            'requested_by' => auth()->id()
+        ];
+        
         $order->update([
-            'notes' => ($order->notes ? $order->notes . "\n" : '') . 
-                      "Exchange requested on " . now()->format('Y-m-d H:i:s') . 
-                      ". Reason: " . $request->reason . 
-                      ". Exchange reason: " . $request->exchange_reason
+            'notes' => $currentNotes
         ]);
 
         return back()->with('success', 'Exchange request submitted successfully. We will contact you within 2-3 business days.');

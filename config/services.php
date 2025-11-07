@@ -50,4 +50,12 @@ return [
         'webhook_secret' => env('RAZORPAY_WEBHOOK_SECRET'),
         'skip_ssl_verification' => env('RAZORPAY_SKIP_SSL_VERIFICATION', false),
     ],
+
+    'shiprocket' => [
+        'email' => env('SHIPROCKET_EMAIL'),
+        'password' => env('SHIPROCKET_PASSWORD'),
+        'api_url' => env('SHIPROCKET_API_URL', 'https://apiv2.shiprocket.in/v1/external/'),
+        'webhook_url' => env('APP_URL') . '/webhook/shiprocket',
+        'pickup_location' => env('SHIPROCKET_PICKUP_LOCATION', 'Primary'),
+    ],
 ];

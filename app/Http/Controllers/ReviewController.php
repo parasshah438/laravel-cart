@@ -199,8 +199,20 @@ class ReviewController extends Controller
         $photoPaths = [];
         if ($request->hasFile('photos')) {
             foreach ($request->file('photos') as $photo) {
-                $path = $photo->store('reviews/' . $product->id, 'public');
-                $photoPaths[] = $path;
+                // Use enhanced ImageOptimizer
+                $optimizedImages = \App\Helpers\ImageOptimizer::optimizeUploadedImage(
+                    $photo, 
+                    'reviews/' . $product->id,
+                    [
+                        'quality' => 85,
+                        'maxWidth' => 800,
+                        'maxHeight' => 800,
+                        'generateWebP' => true,
+                        'generateThumbnails' => true,
+                        'thumbnailSizes' => [150, 300]
+                    ]
+                );
+                $photoPaths[] = $optimizedImages['optimized'];
             }
         }
 
@@ -322,8 +334,20 @@ class ReviewController extends Controller
                 if (count($existingPhotos) + count($newPhotos) >= 5) {
                     break; // Maximum 5 photos total
                 }
-                $path = $photo->store('reviews/' . $review->product_id, 'public');
-                $newPhotos[] = $path;
+                // Use enhanced ImageOptimizer
+                $optimizedImages = \App\Helpers\ImageOptimizer::optimizeUploadedImage(
+                    $photo, 
+                    'reviews/' . $review->product_id,
+                    [
+                        'quality' => 85,
+                        'maxWidth' => 800,
+                        'maxHeight' => 800,
+                        'generateWebP' => true,
+                        'generateThumbnails' => true,
+                        'thumbnailSizes' => [150, 300]
+                    ]
+                );
+                $newPhotos[] = $optimizedImages['optimized'];
             }
         }
 
@@ -344,8 +368,20 @@ class ReviewController extends Controller
         if ($request->hasFile('photos')) {
             foreach ($request->file('photos') as $photo) {
                 if (count($currentPhotos) < 5) { // Max 5 photos
-                    $path = $photo->store('reviews/' . $review->product_id, 'public');
-                    $currentPhotos[] = $path;
+                    // Use enhanced ImageOptimizer
+                    $optimizedImages = \App\Helpers\ImageOptimizer::optimizeUploadedImage(
+                        $photo, 
+                        'reviews/' . $review->product_id,
+                        [
+                            'quality' => 85,
+                            'maxWidth' => 800,
+                            'maxHeight' => 800,
+                            'generateWebP' => true,
+                            'generateThumbnails' => true,
+                            'thumbnailSizes' => [150, 300]
+                        ]
+                    );
+                    $currentPhotos[] = $optimizedImages['optimized'];
                 }
             }
         }
@@ -480,7 +516,19 @@ class ReviewController extends Controller
             return response()->json(['success' => false, 'message' => 'Maximum 5 photos allowed per review']);
         }
 
-        $path = $request->file('photo')->store('reviews/' . $review->product_id, 'public');
+        $optimizedImages = \App\Helpers\ImageOptimizer::optimizeUploadedImage(
+            $request->file('photo'), 
+            'reviews/' . $review->product_id,
+            [
+                'quality' => 85,
+                'maxWidth' => 800,
+                'maxHeight' => 800,
+                'generateWebP' => true,
+                'generateThumbnails' => true,
+                'thumbnailSizes' => [150, 300]
+            ]
+        );
+        $path = $optimizedImages['optimized'];
         $currentPhotos[] = $path;
 
         $review->update(['photos' => $currentPhotos]);

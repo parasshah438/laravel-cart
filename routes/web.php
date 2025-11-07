@@ -296,5 +296,142 @@ Route::get('/test-location-form', function () {
     return view('partials._address_form', compact('countries', 'cartItems'));
 })->name('test.location.form');
 
+// ================================================================================================
+// 🧪 IMAGE OPTIMIZATION TESTING (Remove in production)
+// ================================================================================================
+include __DIR__ . '/test-image-optimization.php';
+include __DIR__ . '/test-intervention.php';
+
+// Add test upload route
+Route::post('/test-image-upload', function(\Illuminate\Http\Request $request) {
+    try {
+        // Check PHP upload limits first
+        $uploadMaxFilesize = ini_get('upload_max_filesize');
+        $postMaxSize = ini_get('post_max_size');
+        
+        \Log::info('Upload attempt started', [
+            'upload_max_filesize' => $uploadMaxFilesize,
+            'post_max_size' => $postMaxSize,
+            'files_received' => count($_FILES),
+            'file_error_code' => $_FILES['test_image']['error'] ?? 'no file'
+        ]);
+        
+        // Check for upload errors before validation
+        if (isset($_FILES['test_image']) && $_FILES['test_image']['error'] !== UPLOAD_ERR_OK) {
+            $errors = [
+                UPLOAD_ERR_INI_SIZE => "File exceeds upload_max_filesize ({$uploadMaxFilesize})",
+                UPLOAD_ERR_FORM_SIZE => 'File exceeds MAX_FILE_SIZE in form',
+                UPLOAD_ERR_PARTIAL => 'File was only partially uploaded',
+                UPLOAD_ERR_NO_FILE => 'No file was uploaded',
+                UPLOAD_ERR_NO_TMP_DIR => 'Missing temporary folder',
+                UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk',
+                UPLOAD_ERR_EXTENSION => 'Upload stopped by extension'
+            ];
+            
+            $errorMsg = $errors[$_FILES['test_image']['error']] ?? 'Unknown upload error';
+            
+            return response()->json([
+                'success' => false,
+                'message' => "Upload error: {$errorMsg}",
+                'error_code' => $_FILES['test_image']['error']
+            ], 400);
+        }
+        
+        // Validate the request
+        $request->validate([
+            'test_image' => 'required|image|mimes:jpeg,png,jpg,gif|max:10240', // 10MB max for testing
+        ]);
+
+        $file = $request->file('test_image');
+        
+        if (!$file || !$file->isValid()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid file upload'
+            ], 400);
+        }
+        
+        $originalSize = $file->getSize();
+        
+        // Log the upload attempt
+        \Log::info('Test image upload started', [
+            'original_name' => $file->getClientOriginalName(),
+            'size' => $originalSize,
+            'mime_type' => $file->getMimeType()
+        ]);
+        
+        // Test the ImageOptimizer
+        $result = \App\Helpers\ImageOptimizer::optimizeUploadedImage(
+            $file,
+            'test-uploads',
+            [
+                'quality' => 85,
+                'maxWidth' => 1200,
+                'maxHeight' => 1200,
+                'generateWebP' => true,
+                'generateThumbnails' => true,
+                'thumbnailSizes' => [150, 300, 600]
+            ]
+        );
+        
+        if (!$result || !isset($result['optimized'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Image optimization failed - no result returned'
+            ], 500);
+        }
+        
+        $optimizedPath = storage_path('app/public/' . $result['optimized']);
+        $optimizedSize = file_exists($optimizedPath) ? filesize($optimizedPath) : 0;
+        
+        $compressionRatio = $originalSize > 0 ? round((($originalSize - $optimizedSize) / $originalSize) * 100, 2) : 0;
+        
+        // Log success
+        \Log::info('Test image upload completed', [
+            'original_size' => $originalSize,
+            'optimized_size' => $optimizedSize,
+            'compression_ratio' => $compressionRatio
+        ]);
+        
+        return response()->json([
+            'success' => true,
+            'original_size' => number_format($originalSize / 1024, 2) . ' KB',
+            'optimized_size' => number_format($optimizedSize / 1024, 2) . ' KB',
+            'compression_ratio' => $compressionRatio,
+            'files' => array_values($result)
+        ]);
+        
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Validation failed: ' . implode(', ', $e->validator->errors()->all())
+        ], 422);
+    } catch (\Exception $e) {
+        // Log the error
+        \Log::error('Test image upload failed', [
+            'error' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'Optimization failed: ' . $e->getMessage()
+        ], 500);
+    }
+})->name('test.image.upload');
+
+// ================================================================================================
+// 🚚 SHIPROCKET WEBHOOK ROUTES (No authentication required)
+// ================================================================================================
+Route::prefix('webhook')->name('webhook.')->group(function () {
+    Route::post('/shiprocket', [\App\Http\Controllers\ShipRocketWebhookController::class, 'handle'])->name('shiprocket');
+    Route::post('/shiprocket/pickup', [\App\Http\Controllers\ShipRocketWebhookController::class, 'handlePickup'])->name('shiprocket.pickup');
+    Route::post('/shiprocket/delivery', [\App\Http\Controllers\ShipRocketWebhookController::class, 'handleDelivery'])->name('shiprocket.delivery');
+    Route::post('/shiprocket/return', [\App\Http\Controllers\ShipRocketWebhookController::class, 'handleReturn'])->name('shiprocket.return');
+    Route::post('/shiprocket/exception', [\App\Http\Controllers\ShipRocketWebhookController::class, 'handleException'])->name('shiprocket.exception');
+});
+
 require __DIR__.'/admin.php';
 require __DIR__.'/auth.php';

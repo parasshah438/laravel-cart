@@ -54,7 +54,7 @@ class ProductController extends Controller
         // Set breadcrumbs
         $breadcrumbs = [
             ['name' => 'Home', 'url' => route('front.index')],
-            ['name' => 'Products', 'url' => route('products.index')]
+            ['name' => 'Products', 'url' => route('admin.products.index')]
         ];
 
         if ($request->category) {
@@ -680,6 +680,206 @@ class ProductController extends Controller
         */
 
         return response()->json($suggestions);
+    }
+
+    // ================================================================================================
+    // 🔧 ADMIN PRODUCT MANAGEMENT WITH IMAGE OPTIMIZATION
+    // ================================================================================================
+
+    /**
+     * Store a new product with optimized images (Admin)
+     */
+    public function store(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'required|string',
+            'category_id' => 'required|exists:categories,id',
+            'price' => 'required|numeric|min:0',
+            'status' => 'required|in:active,inactive',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:5120', // 5MB max
+            'gallery_images' => 'nullable|array|max:10',
+            'gallery_images.*' => 'image|mimes:jpeg,png,jpg,gif|max:5120',
+        ]);
+
+        $validated = $request->validated();
+
+        // Generate slug
+        $validated['slug'] = \Str::slug($validated['name']);
+
+        // Handle main image upload and optimization
+        if ($request->hasFile('image')) {
+            $optimizedImages = \App\Helpers\ImageOptimizer::optimizeUploadedImage(
+                $request->file('image'), 
+                'products',
+                [
+                    'quality' => 85,
+                    'maxWidth' => 1200,
+                    'maxHeight' => 1200,
+                    'generateWebP' => true,
+                    'generateThumbnails' => true,
+                    'thumbnailSizes' => [150, 300, 600]
+                ]
+            );
+            $validated['image'] = $optimizedImages['optimized'];
+        }
+
+        $product = Product::create($validated);
+
+        // Handle gallery images
+        if ($request->hasFile('gallery_images')) {
+            foreach ($request->file('gallery_images') as $index => $galleryImage) {
+                $optimizedImages = \App\Helpers\ImageOptimizer::optimizeUploadedImage(
+                    $galleryImage, 
+                    'products/gallery',
+                    [
+                        'quality' => 85,
+                        'maxWidth' => 1200,
+                        'maxHeight' => 1200,
+                        'generateWebP' => true,
+                        'generateThumbnails' => true,
+                        'thumbnailSizes' => [150, 300, 600]
+                    ]
+                );
+
+                \App\Models\ProductMedia::create([
+                    'product_id' => $product->id,
+                    'media_type' => 'image',
+                    'file_path' => $optimizedImages['optimized'],
+                    'sort_order' => $index + 1
+                ]);
+            }
+        }
+
+        return redirect()->route('admin.products.index')
+            ->with('success', 'Product created successfully with optimized images!');
+    }
+
+    /**
+     * Update product with optimized images (Admin)
+     */
+    public function update(Request $request, Product $product)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'required|string',
+            'category_id' => 'required|exists:categories,id',
+            'price' => 'required|numeric|min:0',
+            'status' => 'required|in:active,inactive',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:5120',
+            'gallery_images' => 'nullable|array|max:10',
+            'gallery_images.*' => 'image|mimes:jpeg,png,jpg,gif|max:5120',
+            'remove_gallery_images' => 'nullable|array',
+        ]);
+
+        $validated = $request->validated();
+        $validated['slug'] = \Str::slug($validated['name']);
+
+        // Handle main image replacement
+        if ($request->hasFile('image')) {
+            // Delete old image if exists
+            if ($product->image && Storage::disk('public')->exists($product->image)) {
+                Storage::disk('public')->delete($product->image);
+            }
+
+            $optimizedImages = \App\Helpers\ImageOptimizer::optimizeUploadedImage(
+                $request->file('image'), 
+                'products',
+                [
+                    'quality' => 85,
+                    'maxWidth' => 1200,
+                    'maxHeight' => 1200,
+                    'generateWebP' => true,
+                    'generateThumbnails' => true,
+                    'thumbnailSizes' => [150, 300, 600]
+                ]
+            );
+            $validated['image'] = $optimizedImages['optimized'];
+        }
+
+        $product->update($validated);
+
+        // Handle gallery image removal
+        if ($request->has('remove_gallery_images')) {
+            $mediaToRemove = \App\Models\ProductMedia::where('product_id', $product->id)
+                ->whereIn('id', $request->remove_gallery_images)
+                ->get();
+
+            foreach ($mediaToRemove as $media) {
+                if (Storage::disk('public')->exists($media->file_path)) {
+                    Storage::disk('public')->delete($media->file_path);
+                }
+                $media->delete();
+            }
+        }
+
+        // Handle new gallery images
+        if ($request->hasFile('gallery_images')) {
+            $maxSortOrder = $product->media()->max('sort_order') ?? 0;
+            
+            foreach ($request->file('gallery_images') as $index => $galleryImage) {
+                $optimizedImages = \App\Helpers\ImageOptimizer::optimizeUploadedImage(
+                    $galleryImage, 
+                    'products/gallery',
+                    [
+                        'quality' => 85,
+                        'maxWidth' => 1200,
+                        'maxHeight' => 1200,
+                        'generateWebP' => true,
+                        'generateThumbnails' => true,
+                        'thumbnailSizes' => [150, 300, 600]
+                    ]
+                );
+
+                \App\Models\ProductMedia::create([
+                    'product_id' => $product->id,
+                    'media_type' => 'image',
+                    'file_path' => $optimizedImages['optimized'],
+                    'sort_order' => $maxSortOrder + $index + 1
+                ]);
+            }
+        }
+
+        return redirect()->route('admin.products.index')
+            ->with('success', 'Product updated successfully with optimized images!');
+    }
+
+    /**
+     * AJAX upload for product image preview (Admin)
+     */
+    public function uploadImagePreview(Request $request)
+    {
+        $request->validate([
+            'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:5120',
+        ]);
+
+        try {
+            $optimizedImages = \App\Helpers\ImageOptimizer::optimizeUploadedImage(
+                $request->file('image'), 
+                'temp/products',
+                [
+                    'quality' => 85,
+                    'maxWidth' => 1200,
+                    'maxHeight' => 1200,
+                    'generateWebP' => true,
+                    'generateThumbnails' => true,
+                    'thumbnailSizes' => [150, 300]
+                ]
+            );
+
+            return response()->json([
+                'success' => true,
+                'image_url' => Storage::url($optimizedImages['optimized']),
+                'thumbnail_url' => Storage::url($optimizedImages['thumbnails'][300] ?? $optimizedImages['optimized']),
+                'file_path' => $optimizedImages['optimized']
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to upload and optimize image: ' . $e->getMessage()
+            ], 500);
+        }
     }
     
 }
