@@ -547,16 +547,19 @@
                             $returnRequest = $order->notes['return_request'] ?? null;
                         @endphp
                         @if($returnRequest)
+                        @php
+                            $returnStatus = $returnRequest['status'] ?? 'unknown';
+                        @endphp
                         <div class="d-flex justify-content-between align-items-center mb-4">
                             <span><i class="fas fa-undo me-2 text-muted"></i>Return Status</span>
                             <span class="badge 
-                                @if($returnRequest['status'] === 'pending') bg-warning
-                                @elseif($returnRequest['status'] === 'approved') bg-info  
-                                @elseif($returnRequest['status'] === 'picked_up') bg-primary
-                                @elseif($returnRequest['status'] === 'completed') bg-success
-                                @elseif($returnRequest['status'] === 'rejected') bg-danger
+                                @if($returnStatus === 'pending') bg-warning
+                                @elseif($returnStatus === 'approved') bg-info  
+                                @elseif($returnStatus === 'picked_up') bg-primary
+                                @elseif($returnStatus === 'completed') bg-success
+                                @elseif($returnStatus === 'rejected') bg-danger
                                 @else bg-secondary @endif">
-                                {{ ucfirst($returnRequest['status']) }}
+                                {{ ucfirst($returnStatus) }}
                             </span>
                         </div>
                         @endif
@@ -646,49 +649,57 @@
                     <div class="card-body">
                         <div class="mb-3">
                             <strong>Return Status:</strong>
+                            @php
+                                $status = $returnRequest['status'] ?? 'unknown';
+                            @endphp
                             <span class="badge ms-2
-                                @if($returnRequest['status'] === 'pending') bg-warning
-                                @elseif($returnRequest['status'] === 'approved') bg-info  
-                                @elseif($returnRequest['status'] === 'picked_up') bg-primary
-                                @elseif($returnRequest['status'] === 'completed') bg-success
-                                @elseif($returnRequest['status'] === 'rejected') bg-danger
+                                @if($status === 'pending') bg-warning
+                                @elseif($status === 'approved') bg-info  
+                                @elseif($status === 'picked_up') bg-primary
+                                @elseif($status === 'completed') bg-success
+                                @elseif($status === 'rejected') bg-danger
                                 @else bg-secondary @endif">
-                                {{ ucfirst($returnRequest['status']) }}
+                                {{ ucfirst($status) }}
                             </span>
                         </div>
                         <div class="mb-3">
-                            <strong>Reason:</strong> {{ ucfirst(str_replace('_', ' ', $returnRequest['reason'])) }}
+                            <strong>Reason:</strong> {{ ucfirst(str_replace('_', ' ', $returnRequest['reason'] ?? 'Unknown')) }}
                         </div>
-                        @if($returnRequest['details'])
+                        @if(isset($returnRequest['details']) && !empty($returnRequest['details']))
                         <div class="mb-3">
                             <strong>Details:</strong> {{ $returnRequest['details'] }}
                         </div>
                         @endif
                         <div class="mb-3">
-                            <strong>Requested On:</strong> {{ \Carbon\Carbon::parse($returnRequest['requested_at'])->format('M d, Y \a\t g:i A') }}
+                            <strong>Requested On:</strong> 
+                            @if(isset($returnRequest['requested_at']))
+                                {{ \Carbon\Carbon::parse($returnRequest['requested_at'])->format('M d, Y \a\t g:i A') }}
+                            @else
+                                N/A
+                            @endif
                         </div>
                         
-                        @if($returnRequest['status'] === 'pending')
+                        @if($status === 'pending')
                             <div class="alert alert-info mb-0">
                                 <i class="fas fa-clock me-2"></i>
                                 <strong>Your return request is being reviewed.</strong> We will contact you within 2-3 business days with an update.
                             </div>
-                        @elseif($returnRequest['status'] === 'approved')
+                        @elseif($status === 'approved')
                             <div class="alert alert-success mb-0">
                                 <i class="fas fa-check-circle me-2"></i>
                                 <strong>Return approved!</strong> We will schedule a pickup within 1-2 business days.
                             </div>
-                        @elseif($returnRequest['status'] === 'picked_up')
+                        @elseif($status === 'picked_up')
                             <div class="alert alert-primary mb-0">
                                 <i class="fas fa-truck me-2"></i>
                                 <strong>Item picked up.</strong> We are processing your return and refund.
                             </div>
-                        @elseif($returnRequest['status'] === 'completed')
+                        @elseif($status === 'completed')
                             <div class="alert alert-success mb-0">    
                                 <i class="fas fa-money-bill-wave me-2"></i>
                                 <strong>Return completed!</strong> Your refund has been processed.
                             </div>
-                        @elseif($returnRequest['status'] === 'rejected')
+                        @elseif($status === 'rejected')
                             <div class="alert alert-danger mb-0">
                                 <i class="fas fa-times-circle me-2"></i>
                                 <strong>Return request rejected.</strong> Please contact support for more details.
@@ -702,7 +713,7 @@
                 <div class="card animate-fade-in payment-info">
                     <div class="card-header">
                         <h5 class="mb-0">
-                            <i class="fas fa-credit-card me-2"></i>Payment Information
+                            <i class="fas fa-credit-card me-2"></i>1111Payment Information
                         </h5>
                     </div>
                     <div class="card-body">
@@ -800,7 +811,7 @@
                                     </button>
                                 </div>
                             </div>
-                        @elseif($returnRequest['status'] === 'pending')
+                        @elseif(($returnRequest['status'] ?? 'unknown') === 'pending')
                             <!-- Show cancel return option -->
                             <form method="POST" action="{{ route('order.cancel-return', $order) }}" 
                                   onsubmit="return confirm('Are you sure you want to cancel your return request?')">
@@ -809,21 +820,151 @@
                                     <i class="fas fa-times me-2"></i>Cancel Return Request
                                 </button>
                             </form>
-                        @elseif(in_array($returnRequest['status'], ['approved', 'picked_up']))
+                        @elseif(($returnRequest['status'] ?? 'unknown') === 'approved')
+                            <!-- Show generate return label option -->
+                            <div class="row g-2">
+                                <div class="col-12">
+                                    <form method="POST" action="{{ route('order.generate-return-label', $order) }}">
+                                        @csrf
+                                        <button type="submit" class="btn btn-primary btn-custom w-100">
+                                            <i class="fas fa-shipping-fast me-2"></i>Generate Return Label
+                                        </button>
+                                    </form>
+                                </div>
+                                @if(isset($returnRequest['return_shipping']['label_generated_at']))
+                                    <div class="col-12 mt-2">
+                                        <div class="alert alert-info">
+                                            <h6><i class="fas fa-info-circle me-2"></i>Return Label Generated</h6>
+                                            <p class="mb-2">Your return label has been generated. Please follow the instructions below:</p>
+                                            
+                                            @if(isset($returnRequest['return_shipping']['carrier_data']['label_url']))
+                                                <div class="mb-2">
+                                                    <a href="{{ $returnRequest['return_shipping']['carrier_data']['label_url'] }}" 
+                                                       target="_blank" class="btn btn-sm btn-outline-primary">
+                                                        <i class="fas fa-download me-1"></i>Download Label
+                                                    </a>
+                                                </div>
+                                            @endif
+
+                                            @if(isset($returnRequest['return_shipping']['carrier_data']['tracking_url']))
+                                                <div class="mb-2">
+                                                    <a href="{{ $returnRequest['return_shipping']['carrier_data']['tracking_url'] }}" 
+                                                       target="_blank" class="btn btn-sm btn-outline-info">
+                                                        <i class="fas fa-search me-1"></i>Track Return
+                                                    </a>
+                                                </div>
+                                            @endif
+
+                                            @if(isset($returnRequest['return_shipping']['carrier_data']['awb_code']))
+                                                <p><strong>AWB Code:</strong> {{ $returnRequest['return_shipping']['carrier_data']['awb_code'] }}</p>
+                                            @endif
+
+                                            @if(isset($returnRequest['return_shipping']['carrier_data']['pickup_date']))
+                                                <p><strong>Pickup Date:</strong> {{ $returnRequest['return_shipping']['carrier_data']['pickup_date'] }}</p>
+                                            @endif
+
+                                            @if(isset($returnRequest['return_shipping']['carrier_data']['contact_number']))
+                                                <p><strong>Contact:</strong> {{ $returnRequest['return_shipping']['carrier_data']['contact_number'] }}</p>
+                                            @endif
+                                        </div>
+                                    </div>
+                                @endif
+                            </div>
+                        @elseif(($returnRequest['status'] ?? 'unknown') === 'picked_up')
                             <!-- Show return in progress status -->
                             <div class="alert alert-info text-center">
                                 <i class="fas fa-hourglass-half me-2"></i>
                                 <strong>Return in Progress</strong><br>
-                                <small>Your return is being processed. Please wait for completion.</small>
+                                <small>Your return package has been picked up and is being processed.</small>
+                                
+                                @if(isset($returnRequest['return_shipping']['carrier_data']['tracking_url']))
+                                    <div class="mt-2">
+                                        <a href="{{ $returnRequest['return_shipping']['carrier_data']['tracking_url'] }}" 
+                                           target="_blank" class="btn btn-sm btn-outline-info">
+                                            <i class="fas fa-search me-1"></i>Track Return Package
+                                        </a>
+                                    </div>
+                                @endif
                             </div>
-                        @elseif($returnRequest['status'] === 'completed')
-                            <!-- Show return completed -->
-                            <div class="alert alert-success text-center">
-                                <i class="fas fa-check-circle me-2"></i>
-                                <strong>Return Completed</strong><br>
-                                <small>Your refund has been processed successfully.</small>
-                            </div>
-                        @elseif($returnRequest['status'] === 'rejected')
+                        @elseif(($returnRequest['status'] ?? 'unknown') === 'completed')
+                            <!-- Show return completed with refund processing -->
+                            @php
+                                $refundStatus = $order->notes['refund_status'] ?? null;
+                                $needsBankDetails = !$refundStatus && $order->payment_method === 'cod';
+                                $refundPending = $refundStatus && in_array($refundStatus['status'], ['initiated', 'processing', 'details_submitted']);
+                                $refundCompleted = $refundStatus && $refundStatus['status'] === 'completed';
+                            @endphp
+
+                            @if($needsBankDetails)
+                                <!-- COD Refund - Collect Bank Details -->
+                                <div class="alert alert-warning">
+                                    <h6><i class="fas fa-exclamation-triangle me-2"></i>Refund Processing Required</h6>
+                                    <p class="mb-3">Your return has been completed. Please provide your payment details to receive your refund of <strong>₹{{ number_format($order->grand_total ?? $order->total ?? $order->amount ?? 0, 2) }}</strong>.</p>
+                                    
+                                    <button type="button" class="btn btn-primary btn-custom w-100" data-bs-toggle="modal" data-bs-target="#refundDetailsModal">
+                                        <i class="fas fa-university me-2"></i>Provide Bank Details for Refund
+                                    </button>
+                                </div>
+                            @elseif($refundPending)
+                                <!-- Refund Processing Status -->
+                                <div class="alert alert-info text-center">
+                                    @if($refundStatus['status'] === 'details_submitted')
+                                        <i class="fas fa-clock me-2"></i>
+                                        <strong>Refund Details Submitted</strong><br>
+                                        <small>
+                                            Your refund details have been received. Our team will process your refund of 
+                                            ₹{{ number_format($refundStatus['amount'] ?? $order->grand_total ?? $order->total ?? $order->amount ?? 0, 2) }} 
+                                            via {{ ucfirst($refundStatus['method'] ?? 'selected method') }} within 1-3 business days.
+                                        </small>
+                                        @if($refundStatus['method'] === 'upi_transfer' && isset($refundStatus['upi_details']))
+                                            <div class="mt-2">
+                                                <small><strong>UPI ID:</strong> {{ $refundStatus['upi_details']['upi_id'] }}</small>
+                                            </div>
+                                        @endif
+                                    @else
+                                        <i class="fas fa-spinner fa-spin me-2"></i>
+                                        <strong>Refund Processing</strong><br>
+                                        <small>
+                                            Your refund of ₹{{ number_format($refundStatus['amount'] ?? $order->grand_total ?? $order->total ?? $order->amount ?? 0, 2) }} 
+                                            is being processed via {{ ucfirst($refundStatus['method'] ?? 'bank transfer') }}.
+                                            <br><strong>Expected Timeline:</strong> {{ $refundStatus['expected_timeline'] ?? '1-3 business days' }}
+                                        </small>
+                                        @if(isset($refundStatus['transaction_id']))
+                                            <div class="mt-2">
+                                                <small><strong>Transaction ID:</strong> {{ $refundStatus['transaction_id'] }}</small>
+                                            </div>
+                                        @endif
+                                    @endif
+                                </div>
+                            @elseif($refundCompleted)
+                                <!-- Refund Completed -->
+                                <div class="alert alert-success text-center">
+                                    <i class="fas fa-check-circle me-2"></i>
+                                    <strong>Refund Completed</strong><br>
+                                    <small>
+                                        ₹{{ number_format($refundStatus['amount'] ?? $order->grand_total ?? $order->total ?? $order->amount ?? 0, 2) }} has been refunded 
+                                        via {{ ucfirst($refundStatus['method'] ?? 'bank transfer') }}.
+                                    </small>
+                                    @if(isset($refundStatus['transaction_id']))
+                                        <div class="mt-2">
+                                            <small><strong>Transaction ID:</strong> {{ $refundStatus['transaction_id'] }}</small>
+                                        </div>
+                                    @endif
+                                    @if(isset($refundStatus['completed_at']))
+                                        <div class="mt-1">
+                                            <small><strong>Completed On:</strong> {{ \Carbon\Carbon::parse($refundStatus['completed_at'])->format('M d, Y g:i A') }}</small>
+                                        </div>
+                                    @endif
+                                </div>
+                            @else
+                                <!-- Default completed status -->
+                                <div class="alert alert-success text-center">
+                                    <i class="fas fa-check-circle me-2"></i>
+                                    <strong>Return Completed</strong><br>
+                                    <small>Your return has been processed successfully.</small>
+                                </div>
+                            @endif
+                        @elseif(($returnRequest['status'] ?? 'unknown') === 'rejected')
                             <!-- Show contact support option -->
                             <a href="{{ route('support.index') }}" class="btn btn-outline-primary btn-custom w-100">
                                 <i class="fas fa-headset me-2"></i>Contact Support
@@ -1130,5 +1271,451 @@
             </div>
         </div>
     </div>
+
+    <!-- Refund Details Modal for COD Orders -->
+    <div class="modal fade" id="refundDetailsModal" tabindex="-1" aria-labelledby="refundDetailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="refundDetailsModalLabel">
+                        <i class="fas fa-university me-2"></i>Provide Refund Details
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST" action="{{ route('order.submit-refund-details', $order) }}">
+                    @csrf
+                    <div class="modal-body">
+                        <!-- Debug Information -->
+                        @if(session('error'))
+                            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                <i class="fas fa-exclamation-circle me-2"></i>{{ session('error') }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        @endif
+
+                        @if(session('success'))
+                            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                                <i class="fas fa-check-circle me-2"></i>{{ session('success') }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        @endif
+
+                        @if($errors->any())
+                            <div class="alert alert-danger alert-dismissible fade show">
+                                <h6><i class="fas fa-exclamation-triangle me-2"></i>Please fix the following errors:</h6>
+                                <ul class="mb-0">
+                                    @foreach($errors->all() as $error)
+                                        <li>{{ $error }}</li>
+                                    @endforeach
+                                </ul>
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        @endif
+
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Refund Amount: ₹{{ number_format($order->grand_total ?? $order->total ?? $order->amount ?? 0, 2) }}</strong><br>
+                            <small>Please provide your preferred refund method and details below. Processing time: 3-7 business days.</small>
+                            <div class="mt-2">
+                                <small class="text-muted">Debug - Order ID: {{ $order->id }}, Payment Method: {{ $order->payment_method ?? 'N/A' }}</small>
+                            </div>
+                        </div>
+
+                        <!-- Refund Method Selection -->
+                        <div class="mb-4">
+                            <label class="form-label"><strong>Choose Refund Method</strong></label>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="form-check refund-method-card">
+                                        <input class="form-check-input" type="radio" name="refund_method" id="bankTransfer" value="bank_transfer" checked>
+                                        <label class="form-check-label w-100" for="bankTransfer">
+                                            <div class="card">
+                                                <div class="card-body text-center">
+                                                    <i class="fas fa-university fa-2x text-primary mb-2"></i>
+                                                    <h6>Bank Transfer</h6>
+                                                    <small class="text-muted">Direct to your bank account</small>
+                                                </div>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check refund-method-card">
+                                        <input class="form-check-input" type="radio" name="refund_method" id="upiTransfer" value="upi_transfer">
+                                        <label class="form-check-label w-100" for="upiTransfer">
+                                            <div class="card">
+                                                <div class="card-body text-center">
+                                                    <i class="fas fa-mobile-alt fa-2x text-success mb-2"></i>
+                                                    <h6>UPI Transfer</h6>
+                                                    <small class="text-muted">Instant via UPI ID</small>
+                                                </div>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check refund-method-card">
+                                        <input class="form-check-input" type="radio" name="refund_method" id="storeCredit" value="store_credit">
+                                        <label class="form-check-label w-100" for="storeCredit">
+                                            <div class="card">
+                                                <div class="card-body text-center">
+                                                    <i class="fas fa-gift fa-2x text-warning mb-2"></i>
+                                                    <h6>Store Credit</h6>
+                                                    <small class="text-muted">Wallet balance for future orders</small>
+                                                </div>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check refund-method-card">
+                                        <input class="form-check-input" type="radio" name="refund_method" id="chequePayment" value="cheque">
+                                        <label class="form-check-label w-100" for="chequePayment">
+                                            <div class="card">
+                                                <div class="card-body text-center">
+                                                    <i class="fas fa-money-check fa-2x text-info mb-2"></i>
+                                                    <h6>Cheque</h6>
+                                                    <small class="text-muted">Physical cheque by post</small>
+                                                </div>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Bank Transfer Details -->
+                        <div id="bankTransferDetails" class="refund-details-section">
+                            <h6 class="text-primary mb-3"><i class="fas fa-university me-2"></i>Bank Account Details</h6>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="accountHolderName" class="form-label">Account Holder Name <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="accountHolderName" name="account_holder_name" 
+                                           placeholder="As per bank records" data-method="bank_transfer">
+                                    <div class="invalid-feedback">
+                                        Please enter the account holder name
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="accountNumber" class="form-label">Account Number <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="accountNumber" name="account_number" 
+                                           placeholder="Enter account number" data-method="bank_transfer">
+                                    <div class="invalid-feedback">
+                                        Please enter a valid account number
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="ifscCode" class="form-label">IFSC Code <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="ifscCode" name="ifsc_code" 
+                                           placeholder="SBIN0001234" pattern="[A-Z]{4}[0][A-Z0-9]{6}" 
+                                           title="Enter 11-character IFSC code (e.g., SBIN0001234)" data-method="bank_transfer">
+                                    <div class="invalid-feedback">
+                                        Please enter a valid IFSC code (e.g., SBIN0001234)
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="bankName" class="form-label">Bank Name <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="bankName" name="bank_name" 
+                                           placeholder="State Bank of India" data-method="bank_transfer">
+                                    <div class="invalid-feedback">
+                                        Please enter the bank name
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <label for="bankBranch" class="form-label">Branch Name/Address</label>
+                                    <input type="text" class="form-control" id="bankBranch" name="bank_branch" 
+                                           placeholder="Main Branch, City Name" data-method="bank_transfer">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- UPI Transfer Details -->
+                        <div id="upiTransferDetails" class="refund-details-section" style="display: none;">
+                            <h6 class="text-success mb-3"><i class="fas fa-mobile-alt me-2"></i>UPI Details</h6>
+                            <div class="row g-3">
+                                <div class="col-md-8">
+                                    <label for="upiId" class="form-label">UPI ID <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="upiId" name="upi_id" 
+                                           placeholder="yourname@paytm / 9876543210@upi" 
+                                           pattern="[a-zA-Z0-9.\-_]+@[a-zA-Z0-9.-]+" 
+                                           title="Please enter a valid UPI ID (e.g., name@paytm)"
+                                           data-method="upi_transfer">
+                                    <div class="invalid-feedback">
+                                        Please enter a valid UPI ID (e.g., name@paytm, 9876543210@upi)
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="upiHolderName" class="form-label">Account Holder Name <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="upiHolderName" name="upi_holder_name" 
+                                           placeholder="As per UPI account"
+                                           data-method="upi_transfer">
+                                    <div class="invalid-feedback">
+                                        Please enter the account holder name
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="alert alert-info mt-3">
+                                <small><i class="fas fa-info-circle me-1"></i>Make sure your UPI ID is active and linked to your bank account.</small>
+                            </div>
+                        </div>
+
+                        <!-- Store Credit Details -->
+                        <div id="storeCreditDetails" class="refund-details-section" style="display: none;">
+                            <h6 class="text-warning mb-3"><i class="fas fa-gift me-2"></i>Store Credit</h6>
+                            <div class="alert alert-success">
+                                <i class="fas fa-check-circle me-2"></i>
+                                <strong>Instant Credit!</strong><br>
+                                Your refund will be added to your account as store credit immediately after processing. 
+                                You can use this credit for future purchases.
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="storeCreditConfirm" name="store_credit_confirm">
+                                <label class="form-check-label" for="storeCreditConfirm">
+                                    I understand that this refund will be added as store credit to my account
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Cheque Details -->
+                        <div id="chequeDetails" class="refund-details-section" style="display: none;">
+                            <h6 class="text-info mb-3"><i class="fas fa-money-check me-2"></i>Cheque Delivery Address</h6>
+                            <div class="alert alert-warning">
+                                <i class="fas fa-clock me-2"></i>
+                                <strong>Processing Time:</strong> 7-14 business days for cheque preparation and postal delivery.
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <label for="chequePayeeName" class="form-label">Payee Name (as per ID proof) <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="chequePayeeName" name="cheque_payee_name" 
+                                           placeholder="Full name as per government ID" data-method="cheque">
+                                    <div class="invalid-feedback">
+                                        Please enter the payee name
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <label for="chequeAddress" class="form-label">Delivery Address <span class="text-danger">*</span></label>
+                                    <textarea class="form-control" id="chequeAddress" name="cheque_address" rows="3" 
+                                              placeholder="Complete address with pincode for cheque delivery" data-method="cheque"></textarea>
+                                    <div class="invalid-feedback">
+                                        Please enter the delivery address
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Terms and Confirmation -->
+                        <div class="mt-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="refundTerms" name="terms_accepted" required>
+                                <label class="form-check-label" for="refundTerms">
+                                    I confirm that the provided details are correct and understand that incorrect information may delay the refund process.
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary" id="submitRefundBtn">
+                            <span class="submit-text">
+                                <i class="fas fa-paper-plane me-1"></i>Submit Refund Details
+                            </span>
+                            <span class="loading-text" style="display: none;">
+                                <i class="fas fa-spinner fa-spin me-1"></i>Processing...
+                            </span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <style>
+    .refund-method-card .form-check-input {
+        position: absolute;
+        opacity: 0;
+    }
+    
+    .refund-method-card .card {
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: 2px solid #e9ecef;
+    }
+    
+    .refund-method-card .form-check-input:checked + .form-check-label .card {
+        border-color: #0d6efd;
+        background-color: #f8f9fa;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .refund-method-card:hover .card {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    </style>
+
+    <script>
+    // Handle refund method selection
+    document.querySelectorAll('input[name="refund_method"]').forEach(function(radio) {
+        radio.addEventListener('change', function() {
+            console.log('Refund method changed to:', this.value);
+            
+            // Remove required attributes from all method-specific fields
+            document.querySelectorAll('[data-method]').forEach(function(field) {
+                field.removeAttribute('required');
+                field.classList.remove('is-invalid');
+            });
+            
+            // Hide all detail sections
+            document.querySelectorAll('.refund-details-section').forEach(function(section) {
+                section.style.display = 'none';
+            });
+            
+            // Show selected section and add required attributes
+            const selectedMethod = this.value;
+            const detailsMap = {
+                'bank_transfer': 'bankTransferDetails',
+                'upi_transfer': 'upiTransferDetails',
+                'store_credit': 'storeCreditDetails',
+                'cheque': 'chequeDetails'
+            };
+            
+            if (detailsMap[selectedMethod]) {
+                const sectionElement = document.getElementById(detailsMap[selectedMethod]);
+                sectionElement.style.display = 'block';
+                
+                // Add required attributes to fields in the selected section
+                if (selectedMethod === 'bank_transfer') {
+                    document.getElementById('accountHolderName').setAttribute('required', 'required');
+                    document.getElementById('accountNumber').setAttribute('required', 'required');
+                    document.getElementById('ifscCode').setAttribute('required', 'required');
+                    document.getElementById('bankName').setAttribute('required', 'required');
+                    // bankBranch is optional
+                } else if (selectedMethod === 'upi_transfer') {
+                    document.getElementById('upiId').setAttribute('required', 'required');
+                    document.getElementById('upiHolderName').setAttribute('required', 'required');
+                } else if (selectedMethod === 'cheque') {
+                    document.getElementById('chequePayeeName').setAttribute('required', 'required');
+                    document.getElementById('chequeAddress').setAttribute('required', 'required');
+                }
+                // store_credit has no required fields
+                
+                console.log('Switched to method:', selectedMethod);
+            }
+        });
+    });
+
+    // Form submission validation
+    document.querySelector('#refundDetailsModal form').addEventListener('submit', function(e) {
+        console.log('Form submission attempted');
+        
+        const selectedMethod = document.querySelector('input[name="refund_method"]:checked');
+        if (!selectedMethod) {
+            console.log('No refund method selected');
+            e.preventDefault();
+            alert('Please select a refund method');
+            return false;
+        }
+        
+        console.log('Selected method:', selectedMethod.value);
+        
+        // Check terms acceptance
+        const termsAccepted = document.getElementById('refundTerms').checked;
+        if (!termsAccepted) {
+            console.log('Terms not accepted');
+            alert('Please accept the terms and conditions');
+            e.preventDefault();
+            return false;
+        }
+        
+        // Validate UPI specific fields
+        if (selectedMethod.value === 'upi_transfer') {
+            const upiId = document.getElementById('upiId').value.trim();
+            const upiHolder = document.getElementById('upiHolderName').value.trim();
+            
+            console.log('UPI ID:', upiId);
+            console.log('UPI Holder:', upiHolder);
+            
+            if (!upiId) {
+                console.log('UPI ID missing');
+                document.getElementById('upiId').classList.add('is-invalid');
+                alert('Please enter your UPI ID');
+                e.preventDefault();
+                return false;
+            }
+            
+            if (!upiHolder) {
+                console.log('UPI Holder name missing');
+                document.getElementById('upiHolderName').classList.add('is-invalid');
+                alert('Please enter the account holder name');
+                e.preventDefault();
+                return false;
+            }
+            
+            // Validate UPI ID format
+            const upiPattern = /^[a-zA-Z0-9.\-_]+@[a-zA-Z0-9.-]+$/;
+            if (!upiPattern.test(upiId)) {
+                console.log('Invalid UPI ID format');
+                document.getElementById('upiId').classList.add('is-invalid');
+                alert('Please enter a valid UPI ID (e.g., name@paytm)');
+                e.preventDefault();
+                return false;
+            }
+        }
+        
+        console.log('Form validation passed, submitting...');
+        
+        // Show loading state
+        const submitBtn = document.getElementById('submitRefundBtn');
+        submitBtn.disabled = true;
+        submitBtn.querySelector('.submit-text').style.display = 'none';
+        submitBtn.querySelector('.loading-text').style.display = 'inline';
+        
+        // Allow form to submit
+        return true;
+    });
+
+    // Reset modal when it's opened
+    document.getElementById('refundDetailsModal').addEventListener('show.bs.modal', function() {
+        console.log('Refund modal opened');
+        // Reset form state
+        const form = this.querySelector('form');
+        form.reset();
+        
+        // Reset submit button
+        const submitBtn = document.getElementById('submitRefundBtn');
+        submitBtn.disabled = false;
+        submitBtn.querySelector('.submit-text').style.display = 'inline';
+        submitBtn.querySelector('.loading-text').style.display = 'none';
+        
+        // Remove validation classes and required attributes
+        form.querySelectorAll('.is-invalid').forEach(function(element) {
+            element.classList.remove('is-invalid');
+        });
+        
+        // Remove all required attributes initially
+        form.querySelectorAll('[data-method]').forEach(function(field) {
+            field.removeAttribute('required');
+        });
+        
+        // Hide all detail sections initially
+        document.querySelectorAll('.refund-details-section').forEach(function(section) {
+            section.style.display = 'none';
+        });
+        
+        // Set bank transfer as default and show its section
+        document.getElementById('bankTransfer').checked = true;
+        document.getElementById('bankTransferDetails').style.display = 'block';
+        
+        // Add required attributes to bank transfer fields
+        document.querySelectorAll('[data-method="bank_transfer"]').forEach(function(field) {
+            if (field.id !== 'bankBranch') { // Branch is optional
+                field.setAttribute('required', 'required');
+            }
+        });
+        
+        console.log('Modal initialized with bank transfer as default');
+    });
+    </script>
 </body>
 </html>

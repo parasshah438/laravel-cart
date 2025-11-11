@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Services\CartService; // Assuming you have a CartService to handle cart operations
 use App\Services\RazorpayService;
 use App\Services\PaymentService;
+use App\Services\ReturnLabelService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Log;
@@ -526,6 +527,220 @@ class CheckoutController extends Controller
         ]);
 
         return back()->with('success', 'Return request has been cancelled successfully.');
+    }
+
+    /**
+     * Generate return label and schedule pickup
+     */
+    public function generateReturnLabel(Order $order)
+    {
+        // Ensure the order belongs to the authenticated user
+        if (auth()->check() && $order->user_id !== auth()->id()) {
+            abort(403, 'Unauthorized access to this order.');
+        }
+
+        $currentNotes = $order->notes ?? [];
+        if (!is_array($currentNotes)) {
+            $currentNotes = [];
+        }
+
+        // Check if return request exists and is approved
+        $returnRequest = $currentNotes['return_request'] ?? null;
+        if (!$returnRequest || $returnRequest['status'] !== 'approved') {
+            return back()->with('error', 'Return label can only be generated for approved return requests.');
+        }
+
+        // Check if label already generated
+        if (isset($currentNotes['return_shipping']['label_generated_at'])) {
+            return back()->with('info', 'Return label has already been generated for this order.');
+        }
+
+        try {
+            // Use ReturnLabelService to generate label
+            $labelService = app(\App\Services\ReturnLabelService::class);
+            
+            // Get return items from the return request
+            $returnItems = $returnRequest['items'] ?? [];
+            
+            $result = $labelService->generateReturnLabel($order, $returnItems);
+
+            if ($result['success']) {
+                // Update order status if needed
+                if ($order->status === 'delivered') {
+                    $order->update(['status' => 'return_initiated']);
+                }
+
+                return back()->with([
+                    'success' => $result['message'],
+                    'return_info' => [
+                        'awb_code' => $result['awb_code'] ?? null,
+                        'pickup_date' => $result['pickup_date'] ?? null,
+                        'label_url' => $result['label_url'] ?? null,
+                        'tracking_url' => $result['tracking_url'] ?? null,
+                        'instructions' => $result['instructions'] ?? [],
+                        'contact_number' => $result['contact_number'] ?? null
+                    ]
+                ]);
+            } else {
+                return back()->with('error', $result['message']);
+            }
+
+        } catch (\Exception $e) {
+            \Log::error('Return label generation failed', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return back()->with('error', 'Failed to generate return label. Please contact customer support.');
+        }
+    }
+
+    /**
+     * Submit refund details for COD orders
+     */
+    public function submitRefundDetails(Request $request, Order $order)
+    {
+        // Ensure the order belongs to the authenticated user
+        if (auth()->check() && $order->user_id !== auth()->id()) {
+            abort(403, 'Unauthorized access to this order.');
+        }
+
+        // Validate that return is completed
+        $currentNotes = $order->notes ?? [];
+        $returnRequest = $currentNotes['return_request'] ?? null;
+        
+        if (!$returnRequest || $returnRequest['status'] !== 'completed') {
+            return back()->with('error', 'Refund details can only be submitted for completed returns.');
+        }
+
+        // Check if refund details already submitted
+        if (isset($currentNotes['refund_status'])) {
+            return back()->with('info', 'Refund details have already been submitted for this order.');
+        }
+
+        // Validate request based on refund method
+        $rules = [
+            'refund_method' => 'required|in:bank_transfer,upi_transfer,store_credit,cheque',
+            'terms_accepted' => 'accepted'
+        ];
+
+        switch ($request->refund_method) {
+            case 'bank_transfer':
+                $rules = array_merge($rules, [
+                    'account_holder_name' => 'required|string|max:255',
+                    'account_number' => 'required|string|max:20',
+                    'ifsc_code' => 'required|string|regex:/^[A-Z]{4}[0][A-Z0-9]{6}$/',
+                    'bank_name' => 'required|string|max:255',
+                    'bank_branch' => 'nullable|string|max:255'
+                ]);
+                break;
+            
+            case 'upi_transfer':
+                $rules = array_merge($rules, [
+                    'upi_id' => 'required|string|regex:/^[a-zA-Z0-9.\-_]+@[a-zA-Z0-9.-]+$/',
+                    'upi_holder_name' => 'required|string|max:255'
+                ]);
+                break;
+            
+            case 'store_credit':
+                $rules['store_credit_confirm'] = 'accepted';
+                break;
+            
+            case 'cheque':
+                $rules = array_merge($rules, [
+                    'cheque_payee_name' => 'required|string|max:255',
+                    'cheque_address' => 'required|string|max:1000'
+                ]);
+                break;
+        }
+
+        $request->validate($rules);
+
+        try {
+            // Prepare refund details
+            $refundDetails = [
+                'method' => $request->refund_method,
+                'amount' => $order->total_amount,
+                'submitted_at' => now()->toISOString(),
+                'status' => 'details_submitted'
+            ];
+
+            // Add method-specific details
+            switch ($request->refund_method) {
+                case 'bank_transfer':
+                    $refundDetails['bank_details'] = [
+                        'account_holder_name' => $request->account_holder_name,
+                        'account_number' => $request->account_number,
+                        'ifsc_code' => strtoupper($request->ifsc_code),
+                        'bank_name' => $request->bank_name,
+                        'bank_branch' => $request->bank_branch
+                    ];
+                    break;
+                
+                case 'upi_transfer':
+                    $refundDetails['upi_details'] = [
+                        'upi_id' => strtolower($request->upi_id),
+                        'holder_name' => $request->upi_holder_name
+                    ];
+                    break;
+                
+                case 'store_credit':
+                    $refundDetails['store_credit'] = [
+                        'confirmed' => true,
+                        'user_id' => auth()->id()
+                    ];
+                    break;
+                
+                case 'cheque':
+                    $refundDetails['cheque_details'] = [
+                        'payee_name' => $request->cheque_payee_name,
+                        'delivery_address' => $request->cheque_address
+                    ];
+                    break;
+            }
+
+            // Update order with refund details
+            $currentNotes['refund_status'] = $refundDetails;
+            $order->update(['notes' => $currentNotes]);
+
+            \Log::info('Refund details submitted', [
+                'order_id' => $order->id,
+                'method' => $request->refund_method,
+                'user_id' => auth()->id()
+            ]);
+
+            // Auto-process store credit immediately
+            if ($request->refund_method === 'store_credit') {
+                try {
+                    $refundService = app(\App\Services\RefundProcessingService::class);
+                    $result = $refundService->processRefund($order);
+                    
+                    if ($result['success']) {
+                        return back()->with('success', 'Store credit has been added to your account immediately! You can use it for future purchases.');
+                    }
+                } catch (\Exception $e) {
+                    \Log::error('Auto store credit processing failed', ['error' => $e->getMessage()]);
+                }
+            }
+
+            $messages = [
+                'bank_transfer' => 'Bank transfer details submitted successfully. Your refund will be processed within 3-7 business days.',
+                'upi_transfer' => 'UPI details submitted successfully. Your refund will be processed within 1-3 business days.',
+                'store_credit' => 'Store credit will be added to your account within 24 hours.',
+                'cheque' => 'Cheque delivery details submitted successfully. Your cheque will be dispatched within 7-14 business days.'
+            ];
+
+            return back()->with('success', $messages[$request->refund_method]);
+
+        } catch (\Exception $e) {
+            \Log::error('Refund details submission failed', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage()
+            ]);
+
+            return back()->with('error', 'Failed to submit refund details. Please try again or contact customer support.');
+        }
     }
 
     /**

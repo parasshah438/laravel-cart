@@ -91,6 +91,8 @@ Route::middleware(['auth'])->group(function () {
     //Advanced Order Management Features
     Route::post('/order/{order}/return', [\App\Http\Controllers\CheckoutController::class, 'returnOrder'])->name('order.return');
     Route::post('/order/{order}/cancel-return', [\App\Http\Controllers\CheckoutController::class, 'cancelReturn'])->name('order.cancel-return');
+    Route::post('/order/{order}/generate-return-label', [\App\Http\Controllers\CheckoutController::class, 'generateReturnLabel'])->name('order.generate-return-label');
+    Route::post('/order/{order}/submit-refund-details', [\App\Http\Controllers\CheckoutController::class, 'submitRefundDetails'])->name('order.submit-refund-details');
     Route::post('/order/{order}/exchange', [\App\Http\Controllers\CheckoutController::class, 'exchangeOrder'])->name('order.exchange');
     Route::get('/order/{order}/invoice', [\App\Http\Controllers\CheckoutController::class, 'downloadInvoice'])->name('order.invoice');
     Route::get('/order/{order}/receipt', [\App\Http\Controllers\CheckoutController::class, 'downloadReceipt'])->name('order.receipt');
@@ -192,11 +194,19 @@ Route::prefix('compare')->name('compare.')->group(function() {
 // 🔧 ADMIN ROUTES (Amazon-Style Review Management)
 // ================================================================================================
 Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () {
+    // Review Management
     Route::get('/reviews', [\App\Http\Controllers\Admin\AdminReviewController::class, 'index'])->name('reviews.index');
     Route::get('/reviews/{review}', [\App\Http\Controllers\Admin\AdminReviewController::class, 'show'])->name('reviews.show');
     Route::post('/reviews/{review}/approve', [\App\Http\Controllers\Admin\AdminReviewController::class, 'approve'])->name('reviews.approve');
     Route::post('/reviews/{review}/reject', [\App\Http\Controllers\Admin\AdminReviewController::class, 'reject'])->name('reviews.reject');
     Route::get('/reviews/analytics/data', [\App\Http\Controllers\Admin\AdminReviewController::class, 'analytics'])->name('reviews.analytics');
+    
+    // Return Management
+    Route::get('/returns', [\App\Http\Controllers\ReturnManagementController::class, 'index'])->name('returns.index');
+    Route::get('/returns/{order}', [\App\Http\Controllers\ReturnManagementController::class, 'show'])->name('returns.show');
+    Route::post('/returns/{order}/update-status', [\App\Http\Controllers\ReturnManagementController::class, 'updateStatus'])->name('returns.update-status');
+    Route::post('/returns/{order}/process-refund', [\App\Http\Controllers\ReturnManagementController::class, 'processRefund'])->name('returns.process-refund');
+    Route::post('/returns/{order}/update-refund-status', [\App\Http\Controllers\ReturnManagementController::class, 'updateRefundStatus'])->name('returns.update-refund-status');
 });
 
 // Include test routes for Amazon review system (remove in production)

@@ -37,6 +37,22 @@
                             <span>{{ __('Contact') }}</span>
                         </div>
                     </x-nav-link>
+                    
+                    <!-- Admin Links (for testing/demo) -->
+                    @auth
+                        <x-nav-link :href="route('admin.returns.index')" :active="request()->routeIs('admin.returns.*')">
+                            <div class="flex items-center space-x-1">
+                                <i class="fas fa-undo"></i>
+                                <span class="text-orange-600 font-medium">{{ __('Admin Returns') }}</span>
+                            </div>
+                        </x-nav-link>
+                        <x-nav-link :href="route('admin.reviews.index')" :active="request()->routeIs('admin.reviews.*')">
+                            <div class="flex items-center space-x-1">
+                                <i class="fas fa-star"></i>
+                                <span class="text-blue-600 font-medium">{{ __('Admin Reviews') }}</span>
+                            </div>
+                        </x-nav-link>
+                    @endauth
                 </div>
             </div>
 
