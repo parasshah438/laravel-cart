@@ -90,6 +90,7 @@ Route::middleware(['auth'])->group(function () {
     
     //Advanced Order Management Features
     Route::post('/order/{order}/return', [\App\Http\Controllers\CheckoutController::class, 'returnOrder'])->name('order.return');
+    Route::post('/order/{order}/cancel-return', [\App\Http\Controllers\CheckoutController::class, 'cancelReturn'])->name('order.cancel-return');
     Route::post('/order/{order}/exchange', [\App\Http\Controllers\CheckoutController::class, 'exchangeOrder'])->name('order.exchange');
     Route::get('/order/{order}/invoice', [\App\Http\Controllers\CheckoutController::class, 'downloadInvoice'])->name('order.invoice');
     Route::get('/order/{order}/receipt', [\App\Http\Controllers\CheckoutController::class, 'downloadReceipt'])->name('order.receipt');

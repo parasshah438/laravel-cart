@@ -10,6 +10,7 @@ use App\Jobs\ProcessShipmentJob;
 use App\Jobs\TestShipmentJob;
 use App\Jobs\SimpleProcessShipmentJob;
 use App\Jobs\MinimalShipmentJob;
+use App\Jobs\ProcessCODTrackingEventJob;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -229,6 +230,13 @@ class AdminOrderController extends Controller
         // Handle specific status changes (Professional Flow)
         if ($request->status === 'confirmed' && $order->canCreateShipment()) {
             SimpleProcessShipmentJob::dispatch($order);
+        }
+        
+        // Handle shipping status changes with tracking events
+        if ($request->status === 'shipped') {
+            $this->handleShippedStatus($order);
+        } elseif ($request->status === 'delivered') {
+            $this->handleDeliveredStatus($order);
         }
         
         // Professional response with transition message
@@ -706,5 +714,36 @@ class AdminOrderController extends Controller
         };
         
         return response()->stream($callback, 200, $headers);
+    }
+
+    /**
+     * Handle shipped status change with tracking events
+     */
+    protected function handleShippedStatus(Order $order): void
+    {
+        // Get the order's shipment (should exist if order was confirmed properly)
+        $shipment = $order->shipments()->latest()->first();
+        
+        if ($shipment) {
+            // Create tracking event for admin shipping action
+            ProcessCODTrackingEventJob::adminShipped($shipment, auth()->id());
+        }
+    }
+
+    /**
+     * Handle delivered status change with tracking events
+     */
+    protected function handleDeliveredStatus(Order $order): void
+    {
+        // Get the order's shipment
+        $shipment = $order->shipments()->latest()->first();
+        
+        if ($shipment) {
+            // Create tracking event for admin delivery confirmation
+            ProcessCODTrackingEventJob::adminDelivered($shipment, auth()->id(), [
+                'delivery_location' => 'Customer Address',
+                'delivery_notes' => 'Delivered by admin confirmation'
+            ]);
+        }
     }
 }

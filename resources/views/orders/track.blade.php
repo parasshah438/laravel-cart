@@ -6,178 +6,12 @@
     <title>Track Order #{{ $order->order_number }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
     <style>
         :root {
             --primary-color: #2563eb;
             --success-color: #059669;
-            --        <div class="toast-container position-fixed bottom-0 end-0 p-3">
-            <div class="toast show" role="alert">
-                <div class="toast-header bg-danger text-white">
-                    <i class="fas fa-exclamation-circle me-2"></i>
-                    <strong class="me-auto">Error</strong>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
-                </div>
-                <div class="toast-body">{{ session('error') }}</div>
-            </div>
-        </div>
-    @endif
-
-    <!-- Return Modal -->
-    <div class="modal fade" id="returnModal" tabindex="-1" aria-labelledby="returnModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <form method="POST" action="{{ route('order.return', $order) }}">
-                    @csrf
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="returnModalLabel">Return Order Items</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <!-- Return Policy -->
-                        <div class="alert alert-info">
-                            <i class="fas fa-info-circle me-2"></i>
-                            <strong>Return Policy:</strong> Items can be returned within 30 days of delivery. 
-                            Items must be in original condition with tags attached.
-                        </div>
-
-                        <!-- Return Reason -->
-                        <div class="mb-3">
-                            <label for="return_reason" class="form-label">Reason for Return <span class="text-danger">*</span></label>
-                            <select class="form-select" name="return_reason" id="return_reason" required>
-                                <option value="">Select a reason</option>
-                                <option value="defective">Defective Product</option>
-                                <option value="wrong_item">Wrong Item Received</option>
-                                <option value="not_as_described">Not as Described</option>
-                                <option value="size_issue">Size Issue</option>
-                                <option value="changed_mind">Changed Mind</option>
-                                <option value="damaged_shipping">Damaged During Shipping</option>
-                                <option value="other">Other</option>
-                            </select>
-                        </div>
-
-                        <!-- Additional Comments -->
-                        <div class="mb-3">
-                            <label for="return_comments" class="form-label">Additional Comments</label>
-                            <textarea class="form-control" name="return_comments" id="return_comments" rows="3" 
-                                      placeholder="Please provide additional details about your return..."></textarea>
-                        </div>
-
-                        <!-- Items to Return -->
-                        <div class="mb-3">
-                            <label class="form-label">Select Items to Return <span class="text-danger">*</span></label>
-                            <div class="border rounded p-3">
-                                @foreach($order->orderItems as $item)
-                                    <div class="form-check mb-2">
-                                        <input class="form-check-input" type="checkbox" name="return_items[]" 
-                                               value="{{ $item->id }}" id="return_item_{{ $item->id }}">
-                                        <label class="form-check-label d-flex justify-content-between align-items-center w-100" 
-                                               for="return_item_{{ $item->id }}">
-                                            <div>
-                                                <strong>{{ $item->product->name }}</strong>
-                                                <br>
-                                                <small class="text-muted">Quantity: {{ $item->quantity }} | Price: ${{ number_format($item->price, 2) }}</small>
-                                            </div>
-                                            <span class="fw-bold">${{ number_format($item->price * $item->quantity, 2) }}</span>
-                                        </label>
-                                    </div>
-                                @endforeach
-                            </div>
-                        </div>
-
-                        <!-- Refund Method -->
-                        <div class="mb-3">
-                            <label for="refund_method" class="form-label">Preferred Refund Method</label>
-                            <select class="form-select" name="refund_method" id="refund_method">
-                                <option value="original_payment">Original Payment Method</option>
-                                <option value="store_credit">Store Credit</option>
-                                <option value="bank_transfer">Bank Transfer</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-warning">Submit Return Request</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Exchange Modal -->
-    <div class="modal fade" id="exchangeModal" tabindex="-1" aria-labelledby="exchangeModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <form method="POST" action="{{ route('order.exchange', $order) }}">
-                    @csrf
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="exchangeModalLabel">Exchange Order Items</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <!-- Exchange Policy -->
-                        <div class="alert alert-info">
-                            <i class="fas fa-info-circle me-2"></i>
-                            <strong>Exchange Policy:</strong> Items can be exchanged within 15 days of delivery. 
-                            Exchanges are subject to availability.
-                        </div>
-
-                        <!-- Exchange Reason -->
-                        <div class="mb-3">
-                            <label for="exchange_reason" class="form-label">Reason for Exchange <span class="text-danger">*</span></label>
-                            <select class="form-select" name="exchange_reason" id="exchange_reason" required>
-                                <option value="">Select a reason</option>
-                                <option value="size_issue">Size Issue</option>
-                                <option value="color_preference">Color Preference</option>
-                                <option value="defective">Defective Product</option>
-                                <option value="wrong_item">Wrong Item Received</option>
-                                <option value="other">Other</option>
-                            </select>
-                        </div>
-
-                        <!-- Items to Exchange -->
-                        <div class="mb-3">
-                            <label class="form-label">Select Items to Exchange <span class="text-danger">*</span></label>
-                            <div class="border rounded p-3">
-                                @foreach($order->orderItems as $item)
-                                    <div class="form-check mb-2">
-                                        <input class="form-check-input" type="checkbox" name="exchange_items[]" 
-                                               value="{{ $item->id }}" id="exchange_item_{{ $item->id }}">
-                                        <label class="form-check-label d-flex justify-content-between align-items-center w-100" 
-                                               for="exchange_item_{{ $item->id }}">
-                                            <div>
-                                                <strong>{{ $item->product->name }}</strong>
-                                                <br>
-                                                <small class="text-muted">Quantity: {{ $item->quantity }} | Price: ${{ number_format($item->price, 2) }}</small>
-                                            </div>
-                                            <span class="fw-bold">${{ number_format($item->price * $item->quantity, 2) }}</span>
-                                        </label>
-                                    </div>
-                                @endforeach
-                            </div>
-                        </div>
-
-                        <!-- Exchange Preferences -->
-                        <div class="mb-3">
-                            <label for="exchange_preferences" class="form-label">Exchange Preferences</label>
-                            <textarea class="form-control" name="exchange_preferences" id="exchange_preferences" rows="3" 
-                                      placeholder="Please specify your preferred size, color, or alternative product..."></textarea>
-                        </div>
-
-                        <!-- Additional Comments -->
-                        <div class="mb-3">
-                            <label for="exchange_comments" class="form-label">Additional Comments</label>
-                            <textarea class="form-control" name="exchange_comments" id="exchange_comments" rows="2" 
-                                      placeholder="Any additional information..."></textarea>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-info">Submit Exchange Request</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>or: #d97706;
+            -- warning-color: #f6993f or: #d97706;
             --danger-color: #dc2626;
             --info-color: #0891b2;
             --light-bg: #f8fafc;
@@ -384,6 +218,177 @@
             }
         }
     </style>
+        
+    @if(session('error'))
+        <div class="toast-container position-fixed bottom-0 end-0 p-3">
+            <div class="toast show" role="alert">
+                <div class="toast-header bg-danger text-white">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    <strong class="me-auto">Error</strong>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+                </div>
+                <div class="toast-body">{{ session('error') }}</div>
+            </div>
+        </div>
+    @endif
+
+    <!-- Return Modal -->
+    <div class="modal fade" id="returnModal" tabindex="-1" aria-labelledby="returnModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <form method="POST" action="{{ route('order.return', $order) }}">
+                    @csrf
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="returnModalLabel">Return Order Items</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Return Policy -->
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Return Policy:</strong> Items can be returned within 30 days of delivery. 
+                            Items must be in original condition with tags attached.
+                        </div>
+
+                        <!-- Return Reason -->
+                        <div class="mb-3">
+                            <label for="return_reason" class="form-label">Reason for Return <span class="text-danger">*</span></label>
+                            <select class="form-select" name="return_reason" id="return_reason" required>
+                                <option value="">Select a reason</option>
+                                <option value="defective">Defective Product</option>
+                                <option value="wrong_item">Wrong Item Received</option>
+                                <option value="not_as_described">Not as Described</option>
+                                <option value="size_issue">Size Issue</option>
+                                <option value="changed_mind">Changed Mind</option>
+                                <option value="damaged_shipping">Damaged During Shipping</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+
+                        <!-- Additional Comments -->
+                        <div class="mb-3">
+                            <label for="return_comments" class="form-label">Additional Comments</label>
+                            <textarea class="form-control" name="return_comments" id="return_comments" rows="3" 
+                                      placeholder="Please provide additional details about your return..."></textarea>
+                        </div>
+
+                        <!-- Items to Return -->
+                        <div class="mb-3">
+                            <label class="form-label">Select Items to Return <span class="text-danger">*</span></label>
+                            <div class="border rounded p-3">
+                                @foreach($order->items as $item)
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" name="return_items[]" 
+                                               value="{{ $item->id }}" id="return_item_{{ $item->id }}">
+                                        <label class="form-check-label d-flex justify-content-between align-items-center w-100" 
+                                               for="return_item_{{ $item->id }}">
+                                            <div>
+                                                <strong>{{ $item->product->name }}</strong>
+                                                <br>
+                                                <small class="text-muted">Quantity: {{ $item->quantity }} | Price: ${{ number_format($item->price, 2) }}</small>
+                                            </div>
+                                            <span class="fw-bold">${{ number_format($item->price * $item->quantity, 2) }}</span>
+                                        </label>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+
+                        <!-- Refund Method -->
+                        <div class="mb-3">
+                            <label for="refund_method" class="form-label">Preferred Refund Method</label>
+                            <select class="form-select" name="refund_method" id="refund_method">
+                                <option value="original_payment">Original Payment Method</option>
+                                <option value="store_credit">Store Credit</option>
+                                <option value="bank_transfer">Bank Transfer</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-warning">Submit Return Request</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Exchange Modal -->
+    <div class="modal fade" id="exchangeModal" tabindex="-1" aria-labelledby="exchangeModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <form method="POST" action="{{ route('order.exchange', $order) }}">
+                    @csrf
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="exchangeModalLabel">Exchange Order Items</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Exchange Policy -->
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Exchange Policy:</strong> Items can be exchanged within 15 days of delivery. 
+                            Exchanges are subject to availability.
+                        </div>
+
+                        <!-- Exchange Reason -->
+                        <div class="mb-3">
+                            <label for="exchange_reason" class="form-label">Reason for Exchange <span class="text-danger">*</span></label>
+                            <select class="form-select" name="exchange_reason" id="exchange_reason" required>
+                                <option value="">Select a reason</option>
+                                <option value="size_issue">Size Issue</option>
+                                <option value="color_preference">Color Preference</option>
+                                <option value="defective">Defective Product</option>
+                                <option value="wrong_item">Wrong Item Received</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+
+                        <!-- Items to Exchange -->
+                        <div class="mb-3">
+                            <label class="form-label">Select Items to Exchange <span class="text-danger">*</span></label>
+                            <div class="border rounded p-3">
+                                @foreach($order->items as $item)
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" name="exchange_items[]" 
+                                               value="{{ $item->id }}" id="exchange_item_{{ $item->id }}">
+                                        <label class="form-check-label d-flex justify-content-between align-items-center w-100" 
+                                               for="exchange_item_{{ $item->id }}">
+                                            <div>
+                                                <strong>{{ $item->product->name }}</strong>
+                                                <br>
+                                                <small class="text-muted">Quantity: {{ $item->quantity }} | Price: ${{ number_format($item->price, 2) }}</small>
+                                            </div>
+                                            <span class="fw-bold">${{ number_format($item->price * $item->quantity, 2) }}</span>
+                                        </label>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+
+                        <!-- Exchange Preferences -->
+                        <div class="mb-3">
+                            <label for="exchange_preferences" class="form-label">Exchange Preferences</label>
+                            <textarea class="form-control" name="exchange_preferences" id="exchange_preferences" rows="3" 
+                                      placeholder="Please specify your preferred size, color, or alternative product..."></textarea>
+                        </div>
+
+                        <!-- Additional Comments -->
+                        <div class="mb-3">
+                            <label for="exchange_comments" class="form-label">Additional Comments</label>
+                            <textarea class="form-control" name="exchange_comments" id="exchange_comments" rows="2" 
+                                      placeholder="Any additional information..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-info">Submit Exchange Request</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
 </head>
 <body>
     <!-- Navigation -->
@@ -459,12 +464,16 @@
                 </h5>
                 
                 <div class="timeline">
-                    @foreach($timeline as $key => $step)
+                    @if(is_array($timeline) && count($timeline) > 0)
+                        @foreach($timeline as $key => $step)
                         @php
                             $status = 'pending';
                             if ($step['completed']) {
-                                $status = $order->status === 'cancelled' && $key === 'cancelled' ? 'cancelled' : 'completed';
-                            } elseif ($key === strtolower($order->status)) {
+                                $status = isset($step['is_current']) && $step['is_current'] ? 'current' : 'completed';
+                                if (isset($step['class']) && str_contains($step['class'], 'danger')) {
+                                    $status = 'cancelled';
+                                }
+                            } elseif (isset($step['is_current']) && $step['is_current']) {
                                 $status = 'current';
                             }
                         @endphp
@@ -503,6 +512,12 @@
                             </div>
                         </div>
                     @endforeach
+                    @else
+                        <div class="text-center py-4">
+                            <i class="fas fa-info-circle text-muted fs-3 mb-2"></i>
+                            <p class="text-muted">No tracking information available for this order.</p>
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>

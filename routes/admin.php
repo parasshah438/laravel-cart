@@ -108,7 +108,7 @@ Route::prefix('admin/support')->name('admin.support.')->middleware(['auth'])->gr
             Route::post('/export', [\App\Http\Controllers\Admin\AdminOrderController::class, 'export'])->name('export');
             
             // Order Status Management
-            Route::post('/{order}/update-status', [\App\Http\Controllers\Admin\AdminOrderController::class, 'updateStatus'])->name('update-status');
+            Route::post('/{order}/update-status', [\App\Http\Controllers\CheckoutController::class, 'updateOrderStatus'])->name('update-status');
             Route::post('/{order}/cancel', [\App\Http\Controllers\Admin\AdminOrderController::class, 'cancel'])->name('cancel');
             
             // COD Order Management
@@ -123,6 +123,15 @@ Route::prefix('admin/support')->name('admin.support.')->middleware(['auth'])->gr
             Route::post('/bulk-cancel', [\App\Http\Controllers\Admin\AdminOrderController::class, 'bulkCancel'])->name('bulk-cancel');
         });
         
+        // ================================================================================================
+        // 🔄 RETURN MANAGEMENT SYSTEM
+        // ================================================================================================
+        Route::prefix('returns')->name('returns.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\ReturnManagementController::class, 'index'])->name('index');
+            Route::get('/{order}', [\App\Http\Controllers\ReturnManagementController::class, 'show'])->name('show');
+            Route::post('/{order}/update-status', [\App\Http\Controllers\ReturnManagementController::class, 'updateStatus'])->name('update-status');
+        });
+
         // User Management (for role assignments)
         Route::get('/users', [AdminSupportController::class, 'users'])->name('users');
         Route::post('/users/{user}/role', [AdminSupportController::class, 'updateUserRole'])->name('users.role');

@@ -317,12 +317,23 @@ class CheckoutController extends Controller
     /**
      * Track specific order with detailed timeline
      */
-    public function trackOrder($orderId)
+    public function trackOrder(Order $order)
     {
-        $order = auth()->user()->orders()->with(['items.product', 'address'])->findOrFail($orderId);
+        // Ensure the order belongs to the authenticated user
+        if (auth()->check() && $order->user_id !== auth()->id()) {
+            abort(403, 'Unauthorized access to this order.');
+        }
+        
+        // Load relationships
+        $order->load(['items.product', 'address', 'latestShipment.trackingEvents']);
         
         // Get tracking timeline from the model
         $timeline = $order->getTrackingSteps();
+        
+        // Ensure timeline is never null
+        if (!is_array($timeline)) {
+            $timeline = [];
+        }
         
         return view('orders.track', compact('order', 'timeline'));
     }
@@ -330,9 +341,12 @@ class CheckoutController extends Controller
     /**
      * Cancel an order (if cancellable)
      */
-    public function cancelOrder($orderId)
+    public function cancelOrder(Order $order)
     {
-        $order = auth()->user()->orders()->findOrFail($orderId);
+        // Ensure the order belongs to the authenticated user
+        if (auth()->check() && $order->user_id !== auth()->id()) {
+            abort(403, 'Unauthorized access to this order.');
+        }
         
         // Check if order can be cancelled
         if (in_array($order->status, ['delivered', 'cancelled', 'shipped'])) {
@@ -347,9 +361,14 @@ class CheckoutController extends Controller
     /**
      * Reorder - add all items from previous order to cart
      */
-    public function reorder($orderId)
+    public function reorder(Order $order)
     {
-        $order = auth()->user()->orders()->with('items.product')->findOrFail($orderId);
+        // Ensure the order belongs to the authenticated user
+        if (auth()->check() && $order->user_id !== auth()->id()) {
+            abort(403, 'Unauthorized access to this order.');
+        }
+        
+        $order->load('items.product');
         
         $addedItems = 0;
         foreach ($order->items as $item) {
@@ -384,15 +403,19 @@ class CheckoutController extends Controller
     /**
      * Process order return request
      */
-    public function returnOrder(Request $request, $orderId)
+    public function returnOrder(Request $request, Order $order)
     {
+        // Ensure the order belongs to the authenticated user
+        if (auth()->check() && $order->user_id !== auth()->id()) {
+            abort(403, 'Unauthorized access to this order.');
+        }
+
         $request->validate([
             'reason' => 'required|string|max:500',
+            'details' => 'nullable|string|max:1000',
             'items' => 'array',
             'items.*' => 'exists:order_items,id'
         ]);
-
-        $order = auth()->user()->orders()->findOrFail($orderId);
         
         // Check if order can be returned (delivered within return period)
         if ($order->status !== 'delivered') {
@@ -406,9 +429,15 @@ class CheckoutController extends Controller
 
         // Create return request - properly handle notes array
         $currentNotes = $order->notes ?? [];
+        if (!is_array($currentNotes)) {
+            $currentNotes = [];
+        }
+        
         $currentNotes['return_request'] = [
             'requested_at' => now()->format('Y-m-d H:i:s'),
             'reason' => $request->reason,
+            'details' => $request->details,
+            'items' => $request->items ?? [],
             'status' => 'pending',
             'requested_by' => auth()->id()
         ];
@@ -423,16 +452,19 @@ class CheckoutController extends Controller
     /**
      * Process order exchange request
      */
-    public function exchangeOrder(Request $request, $orderId)
+    public function exchangeOrder(Request $request, Order $order)
     {
+        // Ensure the order belongs to the authenticated user
+        if (auth()->check() && $order->user_id !== auth()->id()) {
+            abort(403, 'Unauthorized access to this order.');
+        }
+
         $request->validate([
             'reason' => 'required|string|max:500',
             'items' => 'required|array',
             'items.*' => 'exists:order_items,id',
             'exchange_reason' => 'required|string|max:500'
         ]);
-
-        $order = auth()->user()->orders()->findOrFail($orderId);
         
         // Check if order can be exchanged
         if ($order->status !== 'delivered') {
@@ -459,6 +491,41 @@ class CheckoutController extends Controller
         ]);
 
         return back()->with('success', 'Exchange request submitted successfully. We will contact you within 2-3 business days.');
+    }
+
+    /**
+     * Cancel return request
+     */
+    public function cancelReturn(Order $order)
+    {
+        // Ensure the order belongs to the authenticated user
+        if (auth()->check() && $order->user_id !== auth()->id()) {
+            abort(403, 'Unauthorized access to this order.');
+        }
+
+        $currentNotes = $order->notes ?? [];
+        if (!is_array($currentNotes)) {
+            $currentNotes = [];
+        }
+
+        // Check if return request exists and is pending
+        if (!isset($currentNotes['return_request']) || $currentNotes['return_request']['status'] !== 'pending') {
+            return back()->with('error', 'Return request cannot be cancelled at this stage.');
+        }
+
+        // Update return request status to cancelled
+        $currentNotes['return_request']['status'] = 'cancelled';
+        $currentNotes['return_request']['cancelled_at'] = now()->format('Y-m-d H:i:s');
+        $currentNotes['return_request']['cancelled_by'] = auth()->id();
+
+        $order->update(['notes' => $currentNotes]);
+
+        \Log::info('Return request cancelled', [
+            'order_id' => $order->id,
+            'cancelled_by' => auth()->id()
+        ]);
+
+        return back()->with('success', 'Return request has been cancelled successfully.');
     }
 
     /**

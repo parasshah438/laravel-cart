@@ -25,6 +25,7 @@ class OrderShipment extends Model
         'shipped_from_address' => 'array',
         'shipped_to_address' => 'array',
         'package_dimensions' => 'array',
+        'notes' => 'array',
         'metadata' => 'array',
         'package_weight' => 'decimal:2',
         'shipping_cost' => 'decimal:2',

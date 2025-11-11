@@ -272,6 +272,36 @@
     </nav>
 
     <div class="container py-4">
+        <!-- Flash Messages -->
+        @if(session('success'))
+            <div class="alert alert-success alert-dismissible fade show animate-fade-in" role="alert">
+                <i class="fas fa-check-circle me-2"></i>
+                {{ session('success') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        @endif
+
+        @if(session('error'))
+            <div class="alert alert-danger alert-dismissible fade show animate-fade-in" role="alert">
+                <i class="fas fa-exclamation-circle me-2"></i>
+                {{ session('error') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        @endif
+
+        @if($errors->any())
+            <div class="alert alert-danger alert-dismissible fade show animate-fade-in" role="alert">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>Please fix the following errors:</strong>
+                <ul class="mb-0 mt-2">
+                    @foreach($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        @endif
+
         <!-- Order Header -->
         <div class="order-header animate-fade-in">
             <div class="row align-items-center">
@@ -513,6 +543,24 @@
                             <span class="badge bg-secondary">{{ strtoupper($order->payment_method ?? 'COD') }}</span>
                         </div>
 
+                        @php
+                            $returnRequest = $order->notes['return_request'] ?? null;
+                        @endphp
+                        @if($returnRequest)
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <span><i class="fas fa-undo me-2 text-muted"></i>Return Status</span>
+                            <span class="badge 
+                                @if($returnRequest['status'] === 'pending') bg-warning
+                                @elseif($returnRequest['status'] === 'approved') bg-info  
+                                @elseif($returnRequest['status'] === 'picked_up') bg-primary
+                                @elseif($returnRequest['status'] === 'completed') bg-success
+                                @elseif($returnRequest['status'] === 'rejected') bg-danger
+                                @else bg-secondary @endif">
+                                {{ ucfirst($returnRequest['status']) }}
+                            </span>
+                        </div>
+                        @endif
+
                         <hr>
 
                         <div class="price-breakdown">
@@ -584,6 +632,72 @@
                     </div>
                 </div>
 
+                @php
+                    $returnRequest = $order->notes['return_request'] ?? null;
+                @endphp
+                @if($returnRequest)
+                <!-- Return Information -->
+                <div class="card mb-4 animate-fade-in" style="background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%); border-left: 4px solid #f39c12;">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-undo me-2"></i>Return Request Details
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <strong>Return Status:</strong>
+                            <span class="badge ms-2
+                                @if($returnRequest['status'] === 'pending') bg-warning
+                                @elseif($returnRequest['status'] === 'approved') bg-info  
+                                @elseif($returnRequest['status'] === 'picked_up') bg-primary
+                                @elseif($returnRequest['status'] === 'completed') bg-success
+                                @elseif($returnRequest['status'] === 'rejected') bg-danger
+                                @else bg-secondary @endif">
+                                {{ ucfirst($returnRequest['status']) }}
+                            </span>
+                        </div>
+                        <div class="mb-3">
+                            <strong>Reason:</strong> {{ ucfirst(str_replace('_', ' ', $returnRequest['reason'])) }}
+                        </div>
+                        @if($returnRequest['details'])
+                        <div class="mb-3">
+                            <strong>Details:</strong> {{ $returnRequest['details'] }}
+                        </div>
+                        @endif
+                        <div class="mb-3">
+                            <strong>Requested On:</strong> {{ \Carbon\Carbon::parse($returnRequest['requested_at'])->format('M d, Y \a\t g:i A') }}
+                        </div>
+                        
+                        @if($returnRequest['status'] === 'pending')
+                            <div class="alert alert-info mb-0">
+                                <i class="fas fa-clock me-2"></i>
+                                <strong>Your return request is being reviewed.</strong> We will contact you within 2-3 business days with an update.
+                            </div>
+                        @elseif($returnRequest['status'] === 'approved')
+                            <div class="alert alert-success mb-0">
+                                <i class="fas fa-check-circle me-2"></i>
+                                <strong>Return approved!</strong> We will schedule a pickup within 1-2 business days.
+                            </div>
+                        @elseif($returnRequest['status'] === 'picked_up')
+                            <div class="alert alert-primary mb-0">
+                                <i class="fas fa-truck me-2"></i>
+                                <strong>Item picked up.</strong> We are processing your return and refund.
+                            </div>
+                        @elseif($returnRequest['status'] === 'completed')
+                            <div class="alert alert-success mb-0">    
+                                <i class="fas fa-money-bill-wave me-2"></i>
+                                <strong>Return completed!</strong> Your refund has been processed.
+                            </div>
+                        @elseif($returnRequest['status'] === 'rejected')
+                            <div class="alert alert-danger mb-0">
+                                <i class="fas fa-times-circle me-2"></i>
+                                <strong>Return request rejected.</strong> Please contact support for more details.
+                            </div>
+                        @endif
+                    </div>
+                </div>
+                @endif
+
                 <!-- Payment Information -->
                 <div class="card animate-fade-in payment-info">
                     <div class="card-header">
@@ -637,18 +751,18 @@
                             </a>
                         </div>
                         <div class="col-6">
-                            @if($order->status === 'delivered')
-                                <form method="POST" action="{{ route('order.reorder', $order) }}" class="d-inline w-100">
-                                    @csrf
+                            <form method="POST" action="{{ route('order.reorder', $order) }}" class="d-inline w-100">
+                                @csrf
+                                @if($order->status === 'delivered')
                                     <button type="submit" class="btn btn-success btn-custom w-100">
                                         <i class="fas fa-redo me-2"></i>Reorder
                                     </button>
-                                </form>
-                            @else
-                                <a href="{{ route('order.reorder', $order) }}" class="btn btn-outline-primary btn-custom w-100">
-                                    <i class="fas fa-redo me-2"></i>Reorder Items
-                                </a>
-                            @endif
+                                @else
+                                    <button type="submit" class="btn btn-outline-primary btn-custom w-100">
+                                        <i class="fas fa-redo me-2"></i>Reorder Items
+                                    </button>
+                                @endif
+                            </form>
                         </div>
                     </div>
                     
@@ -668,18 +782,53 @@
                     
                     <!-- Order Management Actions -->
                     @if($order->status === 'delivered')
-                        <div class="row g-2">
-                            <div class="col-6">
-                                <button type="button" class="btn btn-outline-warning btn-custom w-100" data-bs-toggle="modal" data-bs-target="#returnModal">
-                                    <i class="fas fa-undo me-2"></i>Return Order
-                                </button>
+                        @php
+                            $returnRequest = $order->notes['return_request'] ?? null;
+                        @endphp
+                        
+                        @if(!$returnRequest)
+                            <!-- Show return/exchange options if no return request exists -->
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <button type="button" class="btn btn-outline-warning btn-custom w-100" data-bs-toggle="modal" data-bs-target="#returnModal">
+                                        <i class="fas fa-undo me-2"></i>Return Order
+                                    </button>
+                                </div>
+                                <div class="col-6">
+                                    <button type="button" class="btn btn-outline-secondary btn-custom w-100" data-bs-toggle="modal" data-bs-target="#exchangeModal">
+                                        <i class="fas fa-exchange-alt me-2"></i>Exchange Items
+                                    </button>
+                                </div>
                             </div>
-                            <div class="col-6">
-                                <button type="button" class="btn btn-outline-secondary btn-custom w-100" data-bs-toggle="modal" data-bs-target="#exchangeModal">
-                                    <i class="fas fa-exchange-alt me-2"></i>Exchange Items
+                        @elseif($returnRequest['status'] === 'pending')
+                            <!-- Show cancel return option -->
+                            <form method="POST" action="{{ route('order.cancel-return', $order) }}" 
+                                  onsubmit="return confirm('Are you sure you want to cancel your return request?')">
+                                @csrf
+                                <button type="submit" class="btn btn-outline-danger btn-custom w-100">
+                                    <i class="fas fa-times me-2"></i>Cancel Return Request
                                 </button>
+                            </form>
+                        @elseif(in_array($returnRequest['status'], ['approved', 'picked_up']))
+                            <!-- Show return in progress status -->
+                            <div class="alert alert-info text-center">
+                                <i class="fas fa-hourglass-half me-2"></i>
+                                <strong>Return in Progress</strong><br>
+                                <small>Your return is being processed. Please wait for completion.</small>
                             </div>
-                        </div>
+                        @elseif($returnRequest['status'] === 'completed')
+                            <!-- Show return completed -->
+                            <div class="alert alert-success text-center">
+                                <i class="fas fa-check-circle me-2"></i>
+                                <strong>Return Completed</strong><br>
+                                <small>Your refund has been processed successfully.</small>
+                            </div>
+                        @elseif($returnRequest['status'] === 'rejected')
+                            <!-- Show contact support option -->
+                            <a href="{{ route('support.index') }}" class="btn btn-outline-primary btn-custom w-100">
+                                <i class="fas fa-headset me-2"></i>Contact Support
+                            </a>
+                        @endif
                     @elseif(in_array($order->status, ['pending', 'confirmed']))
                         <form method="POST" action="{{ route('order.cancel', $order) }}" 
                               onsubmit="return confirm('Are you sure you want to cancel this order?')">
@@ -868,7 +1017,7 @@
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form method="POST" action="{{ route('order.return', $order) }}">
+                <form method="POST" action="{{ route('order.return', $order) }}" onsubmit="console.log('Return form submitted'); return true;">
                     @csrf
                     <div class="modal-body">
                         <div class="alert alert-info">
@@ -912,7 +1061,7 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-warning">
+                        <button type="submit" class="btn btn-warning" onclick="console.log('Return submit button clicked');">
                             <i class="fas fa-undo me-1"></i>Submit Return Request
                         </button>
                     </div>

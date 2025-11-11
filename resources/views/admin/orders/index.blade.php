@@ -189,11 +189,7 @@
                             <td>
                                 <div class="fw-bold">{{ $order->user->name ?? 'N/A' }}</div>
                                 <div class="small text-muted">{{ $order->user->email ?? 'N/A' }}</div>
-                                @if($order->address)
-                                <div class="small text-muted">
-                                    {{ $order->address->city }}, {{ $order->address->state }}
-                                </div>
-                                @endif
+                                
                             </td>
                             <td>
                                 <div class="fw-bold">₹{{ number_format($order->grand_total, 2) }}</div>

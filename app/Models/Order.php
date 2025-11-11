@@ -499,8 +499,13 @@ class Order extends Model
      */
     public function canCreateShipment()
     {
+        // For COD orders, payment is collected on delivery, so allow shipment creation when confirmed
+        $paymentCondition = ($this->payment_method === 'cod') 
+            ? $this->payment_status === 'unpaid'  // COD should be unpaid until delivery
+            : $this->payment_status === 'paid';   // Other methods should be paid
+            
         return $this->status === 'confirmed' && 
-               $this->payment_status === 'paid' && 
+               $paymentCondition && 
                !$this->hasShipment();
     }
 
