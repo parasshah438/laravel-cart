@@ -256,6 +256,24 @@
                                 
                                 <!-- Payment Methods Icons -->
                                 <div class="mt-2 d-flex flex-wrap gap-2">
+                                    <span class="badge bg-light text-dark border"><i class="fab fa-stripe-s me-1"></i>Stripe</span>
+                                    <span class="badge bg-light text-dark border"><i class="fab fa-cc-visa me-1"></i>Visa</span>
+                                    <span class="badge bg-light text-dark border"><i class="fab fa-cc-mastercard me-1"></i>Mastercard</span>
+                                    <span class="badge bg-light text-dark border"><i class="fab fa-cc-amex me-1"></i>Amex</span>
+                                </div>
+                            </div>
+
+                            <!-- Stripe Online Payment -->
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="radio" name="payment_method" id="stripe" value="stripe">
+                                <label class="form-check-label fw-bold" for="stripe">
+                                    <i class="fab fa-stripe me-2 text-info"></i>
+                                    Online Payment (Stripe)
+                                </label>
+                                <div class="text-muted small mt-1">Pay securely with Credit/Debit Card worldwide</div>
+                                
+                                <!-- Payment Methods Icons -->
+                                <div class="mt-2 d-flex flex-wrap gap-2">
                                     <span class="badge bg-light text-dark border"><i class="fab fa-cc-visa me-1"></i>Visa</span>
                                     <span class="badge bg-light text-dark border"><i class="fab fa-cc-mastercard me-1"></i>MasterCard</span>
                                     <span class="badge bg-light text-dark border"><i class="fas fa-university me-1"></i>Net Banking</span>
@@ -1746,6 +1764,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 return;
             }
+
+            // If Stripe is selected, prevent form submission and handle payment
+            if (selectedPaymentMethod === 'stripe') {
+                e.preventDefault(); // Prevent form submission
+                console.log('Stripe payment selected, preventing form submission');
+                
+                // Validate form before payment
+                if (validateForm()) {
+                    initiateStripePayment();
+                } else {
+                    console.log('Form validation failed');
+                }
+                return;
+            }
             
             // For COD, continue with normal form submission
             console.log('COD payment selected, allowing form submission');
@@ -1955,6 +1987,34 @@ function handleRazorpayFailure(response) {
     const placeOrderBtn = document.getElementById('placeOrderBtn');
     placeOrderBtn.disabled = false;
     placeOrderBtn.innerHTML = '<i class="fas fa-lock me-2"></i>Place Order Securely';
+}
+
+/**
+ * Initiate Stripe payment
+ */
+function initiateStripePayment() {
+    try {
+        console.log('Starting Stripe payment process...');
+        
+        // Show loading
+        const placeOrderBtn = document.getElementById('placeOrderBtn');
+        placeOrderBtn.disabled = true;
+        placeOrderBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Processing Payment...';
+        
+        // For Stripe, simply submit the form normally since the backend
+        // will redirect to the payment page
+        console.log('Submitting form for Stripe payment...');
+        document.getElementById('checkoutForm').submit();
+        
+    } catch (error) {
+        console.error('Stripe payment error:', error);
+        showError('Payment failed: ' + error.message);
+        
+        // Reset button
+        const placeOrderBtn = document.getElementById('placeOrderBtn');
+        placeOrderBtn.disabled = false;
+        placeOrderBtn.innerHTML = '<i class="fas fa-lock me-2"></i>Place Order Securely';
+    }
 }
 
 // ================================================================================================

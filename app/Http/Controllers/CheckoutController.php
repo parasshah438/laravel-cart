@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Services\CartService; // Assuming you have a CartService to handle cart operations
 use App\Services\RazorpayService;
+use App\Services\StripeService;
 use App\Services\PaymentService;
 use App\Services\ReturnLabelService;
 use Illuminate\Support\Facades\Auth;
@@ -23,12 +24,14 @@ class CheckoutController extends Controller
 {
     protected $cart;
     protected $razorpayService;
+    protected $stripeService;
     protected $paymentService;
 
-    public function __construct(CartService $cart, RazorpayService $razorpayService, PaymentService $paymentService)
+    public function __construct(CartService $cart, RazorpayService $razorpayService, StripeService $stripeService, PaymentService $paymentService)
     {
         $this->cart = $cart;
         $this->razorpayService = $razorpayService;
+        $this->stripeService = $stripeService;
         $this->paymentService = $paymentService;
     }
 
@@ -141,7 +144,7 @@ class CheckoutController extends Controller
             'address_id' => 'required|exists:user_addresses,id',
             'shipping_method' => 'required|in:morning,standard,express,midnight',
             'time_slot' => 'required|string',
-            'payment_method' => 'required|in:cod,razorpay',
+            'payment_method' => 'required|in:cod,razorpay,stripe',
             'delivery_instructions' => 'nullable|string|max:500',
         ]);
         
@@ -200,6 +203,18 @@ class CheckoutController extends Controller
         // Handle payment method
         if ($request->payment_method === 'razorpay') {
             return $this->initiateRazorpayPayment($request, $user, $address, $cartItems, $grandTotal, [
+                'subtotal' => $subtotal,
+                'discount' => $discount,
+                'shipping_cost' => $shippingCost,
+                'coupon_code' => $couponCode,
+                'coupon_title' => $couponTitle,
+                'delivery_date' => $deliveryDate,
+                'shipping_method' => $request->shipping_method,
+                'time_slot' => $request->time_slot,
+                'delivery_instructions' => $request->delivery_instructions,
+            ]);
+        } elseif ($request->payment_method === 'stripe') {
+            return $this->initiateStripePayment($request, $user, $address, $cartItems, $grandTotal, [
                 'subtotal' => $subtotal,
                 'discount' => $discount,
                 'shipping_cost' => $shippingCost,
@@ -980,6 +995,115 @@ class CheckoutController extends Controller
     }
 
     /**
+     * Initiate Stripe payment
+     */
+    private function initiateStripePayment($request, $user, $address, $cartItems, $grandTotal, $orderData)
+    {
+        try {
+            Log::info('Initiating Stripe payment', [
+                'user_id' => $user->id,
+                'total' => $grandTotal,
+                'items_count' => $cartItems->count()
+            ]);
+
+            // Create order in database first (with pending payment status)
+            $order = $user->orders()->create([
+                'address_id' => $address->id,
+                'order_number' => 'ORD' . strtoupper(uniqid()),
+                'total' => $orderData['subtotal'],
+                'discount' => $orderData['discount'],
+                'shipping_cost' => $orderData['shipping_cost'],
+                'grand_total' => $grandTotal,
+                'delivery_date' => $orderData['delivery_date'],
+                'shipping_method' => $orderData['shipping_method'],
+                'time_slot' => $orderData['time_slot'],
+                'delivery_instructions' => $orderData['delivery_instructions'],
+                'coupon_code' => $orderData['coupon_code'],
+                'coupon_title' => $orderData['coupon_title'],
+                'coupon_discount' => $orderData['discount'],
+                'status' => 'pending',
+                'payment_method' => 'stripe',
+                'payment_status' => 'pending',
+                'notes' => null,
+            ]);
+
+            // Create order items
+            foreach ($cartItems as $item) {
+                $order->items()->create([
+                    'product_id' => $item->product->id,
+                    'product_name' => $item->product->name,
+                    'price' => $item->price_at_time,
+                    'quantity' => $item->quantity,
+                    'total' => $item->price_at_time * $item->quantity,
+                ]);
+            }
+
+            // Create Stripe Payment Intent
+            $paymentIntent = $this->stripeService->createPaymentIntent(
+                $grandTotal, // Amount in INR
+                'inr',
+                [
+                    'order_id' => $order->id,
+                    'order_number' => $order->order_number,
+                    'user_id' => $user->id,
+                    'user_email' => $user->email,
+                    'user_phone' => $user->phone ?? $address->phone_number,
+                ]
+            );
+
+            // Store Stripe Payment Intent ID in our order
+            $order->update([
+                'stripe_payment_intent_id' => $paymentIntent->id,
+                'notes' => json_encode([
+                    'stripe_payment_intent_data' => [
+                        'id' => $paymentIntent->id,
+                        'client_secret' => $paymentIntent->client_secret,
+                        'status' => $paymentIntent->status
+                    ],
+                    'payment_initiated_at' => now()->toISOString()
+                ])
+            ]);
+
+            // ✅ CREATE PAYMENT RECORD FOR STRIPE
+            if (method_exists($this->paymentService, 'createStripePayment')) {
+                $this->paymentService->createStripePayment($order, $paymentIntent->id);
+            }
+
+            Log::info('Stripe Payment Intent created successfully', [
+                'order_id' => $order->id,
+                'payment_intent_id' => $paymentIntent->id
+            ]);
+
+            // Get Stripe configuration for frontend
+            $stripeConfig = $this->stripeService->getConfig();
+            $stripeConfig['payment_intent_id'] = $paymentIntent->id;
+            $stripeConfig['client_secret'] = $paymentIntent->client_secret;
+            $stripeConfig['amount'] = $paymentIntent->amount; // Amount in paise
+
+            // Store order data in session for payment completion
+            Session::put('pending_order_id', $order->id);
+            Session::put('stripe_payment_intent_id', $paymentIntent->id);
+
+            // Return payment view with Stripe configuration
+            return view('checkout.stripe-payment', [
+                'order' => $order,
+                'stripeConfig' => $stripeConfig,
+                'user' => $user,
+                'address' => $address
+            ]);
+
+        } catch (Exception $e) {
+            Log::error('Stripe payment initiation failed', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return back()->with('error', 'Payment initialization failed. Please try again or use COD.');
+        }
+    }
+
+    /**
      * Handle Razorpay payment success
      */
     public function razorpaySuccess(Request $request)
@@ -1062,6 +1186,15 @@ class CheckoutController extends Controller
                 ]);
             }
 
+            // 🚀 AUTOMATICALLY TRIGGER SHIPMENT CREATION FOR ONLINE PAYMENTS
+            if ($order->canCreateShipment()) {
+                \App\Jobs\SimpleProcessShipmentJob::dispatch($order);
+                Log::info('Shipment job dispatched for online payment', [
+                    'order_id' => $order->id,
+                    'payment_method' => 'razorpay'
+                ]);
+            }
+
             // Clear cart and session
             $this->cart->clear();
             Session::forget(['pending_order_id', 'razorpay_order_id']);
@@ -1072,7 +1205,7 @@ class CheckoutController extends Controller
             ]);
 
             return redirect()->route('checkout.thankyou', ['order' => $order->id])
-                ->with('success', 'Payment successful! Your order has been confirmed.');
+                ->with('success', 'Payment successful! Your order has been confirmed and will be shipped soon!');
 
         } catch (Exception $e) {
             Log::error('Razorpay payment success handling failed', [
@@ -1289,5 +1422,277 @@ class CheckoutController extends Controller
     {
         // Similar to payment captured but for order-level events
         $this->handlePaymentCaptured($paymentEntity);
+    }
+
+    /**
+     * Handle Stripe payment success
+     */
+    public function stripeSuccess(Request $request)
+    {
+        try {
+            Log::info('Stripe payment success callback', $request->all());
+
+            $request->validate([
+                'payment_intent_id' => 'required|string',
+            ]);
+
+            // Get order from session
+            $orderId = Session::get('pending_order_id');
+            $sessionPaymentIntentId = Session::get('stripe_payment_intent_id');
+
+            if (!$orderId || $sessionPaymentIntentId !== $request->payment_intent_id) {
+                throw new Exception('Invalid order session data');
+            }
+
+            $order = Order::findOrFail($orderId);
+
+            // Retrieve and verify payment intent from Stripe
+            $paymentIntent = $this->stripeService->retrievePaymentIntent($request->payment_intent_id);
+
+            if ($paymentIntent->status !== 'succeeded') {
+                throw new Exception('Payment not completed successfully');
+            }
+
+            Log::info('Stripe payment verification successful', [
+                'order_id' => $order->id,
+                'payment_intent_id' => $request->payment_intent_id,
+                'status' => $paymentIntent->status
+            ]);
+
+            // ✅ UPDATE PAYMENT RECORD WITH SUCCESS DATA
+            if (method_exists($this->paymentService, 'findByGatewayOrderId')) {
+                $payment = $this->paymentService->findByGatewayOrderId($request->payment_intent_id);
+                if ($payment && method_exists($this->paymentService, 'markPaymentAsCompleted')) {
+                    $this->paymentService->markPaymentAsCompleted($payment, [
+                        'stripe_payment_intent_id' => $request->payment_intent_id,
+                        'gateway_response' => $paymentIntent->toArray(),
+                    ]);
+                }
+            }
+
+            // Update order status
+            $order->update([
+                'payment_status' => 'paid',
+                'status' => 'confirmed',
+                'stripe_payment_intent_id' => $request->payment_intent_id,
+                'notes' => json_encode([
+                    'stripe_payment_success' => $paymentIntent->toArray(),
+                    'payment_completed_at' => now()->toISOString()
+                ])
+            ]);
+
+            // Clear cart and session data
+            $this->cart->clear();
+            Session::forget(['pending_order_id', 'stripe_payment_intent_id']);
+
+            // Send order confirmation email
+            try {
+                Mail::to($order->user->email)->send(new OrderConfirmation($order));
+            } catch (Exception $e) {
+                Log::warning('Failed to send order confirmation email', [
+                    'order_id' => $order->id,
+                    'error' => $e->getMessage()
+                ]);
+            }
+
+            return redirect()->route('checkout.thankyou', ['order' => $order->id])
+                ->with('success', 'Payment successful! Your order has been confirmed.');
+
+        } catch (Exception $e) {
+            Log::error('Stripe payment success handling failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            // Try to get order for failure handling
+            $orderId = Session::get('pending_order_id');
+            $sessionPaymentIntentId = Session::get('stripe_payment_intent_id');
+            
+            if ($orderId) {
+                $order = Order::find($orderId);
+                if ($order && method_exists($this->paymentService, 'findByGatewayOrderId')) {
+                    // ✅ UPDATE PAYMENT RECORD WITH FAILURE DATA
+                    $payment = $this->paymentService->findByGatewayOrderId($sessionPaymentIntentId);
+                    if ($payment && method_exists($this->paymentService, 'markPaymentAsFailed')) {
+                        $this->paymentService->markPaymentAsFailed($payment, [
+                            'reason' => 'Payment verification failed: ' . $e->getMessage(),
+                            'gateway_response' => $request->all(),
+                        ]);
+                    }
+
+                    $order->update([
+                        'payment_status' => 'failed',
+                        'notes' => json_encode([
+                            'payment_failure_reason' => $e->getMessage(),
+                            'payment_failed_at' => now()->toISOString()
+                        ])
+                    ]);
+                }
+            }
+
+            return redirect()->route('checkout.index')
+                ->with('error', 'Payment verification failed. Please try again.');
+        }
+    }
+
+    /**
+     * Handle Stripe payment failure
+     */
+    public function stripeFailure(Request $request)
+    {
+        try {
+            Log::warning('Stripe payment failure callback', $request->all());
+
+            // Get order from session
+            $orderId = Session::get('pending_order_id');
+            $sessionPaymentIntentId = Session::get('stripe_payment_intent_id');
+            
+            if ($orderId) {
+                $order = Order::find($orderId);
+                if ($order && method_exists($this->paymentService, 'findByGatewayOrderId')) {
+                    // ✅ UPDATE PAYMENT RECORD WITH FAILURE DATA
+                    $payment = $this->paymentService->findByGatewayOrderId($sessionPaymentIntentId);
+                    if ($payment && method_exists($this->paymentService, 'markPaymentAsFailed')) {
+                        $this->paymentService->markPaymentAsFailed($payment, [
+                            'reason' => $request->input('error.message', 'Payment failed'),
+                            'gateway_response' => $request->all(),
+                        ]);
+                    }
+
+                    $order->update([
+                        'payment_status' => 'failed',
+                        'notes' => json_encode([
+                            'payment_failure_data' => $request->all(),
+                            'payment_failed_at' => now()->toISOString()
+                        ])
+                    ]);
+                }
+            }
+
+            // Clear session data
+            Session::forget(['pending_order_id', 'stripe_payment_intent_id']);
+
+            return redirect()->route('checkout.index')
+                ->with('error', 'Payment was unsuccessful. Please try again or choose a different payment method.');
+
+        } catch (Exception $e) {
+            Log::error('Stripe payment failure handling error', [
+                'error' => $e->getMessage(),
+                'request_data' => $request->all()
+            ]);
+
+            return redirect()->route('checkout.index')
+                ->with('error', 'Payment failed. Please try again.');
+        }
+    }
+
+    /**
+     * Handle Stripe webhook
+     */
+    public function stripeWebhook(Request $request)
+    {
+        try {
+            $payload = $request->getContent();
+            $signature = $request->header('Stripe-Signature');
+
+            Log::info('Stripe webhook received', [
+                'type' => $request->input('type'),
+                'id' => $request->input('id')
+            ]);
+
+            // Verify webhook signature
+            $event = $this->stripeService->verifyWebhookSignature($payload, $signature);
+            
+            if (!$event) {
+                Log::warning('Stripe webhook signature verification failed');
+                return response('Unauthorized', 401);
+            }
+
+            // Handle different webhook events
+            switch ($event->type) {
+                case 'payment_intent.succeeded':
+                    $this->handleStripePaymentSucceeded($event->data->object);
+                    break;
+                    
+                case 'payment_intent.payment_failed':
+                    $this->handleStripePaymentFailed($event->data->object);
+                    break;
+
+                default:
+                    Log::info('Unhandled Stripe webhook event', ['type' => $event->type]);
+            }
+
+            return response('OK', 200);
+
+        } catch (Exception $e) {
+            Log::error('Stripe webhook handling failed', [
+                'error' => $e->getMessage(),
+                'request_data' => $request->all()
+            ]);
+
+            return response('Internal Server Error', 500);
+        }
+    }
+
+    /**
+     * Handle Stripe payment succeeded webhook
+     */
+    private function handleStripePaymentSucceeded($paymentIntent)
+    {
+        $paymentIntentId = $paymentIntent->id ?? null;
+
+        if (!$paymentIntentId) {
+            Log::warning('Missing payment_intent_id in webhook', $paymentIntent);
+            return;
+        }
+
+        $order = Order::where('stripe_payment_intent_id', $paymentIntentId)->first();
+        if (!$order) {
+            Log::warning('Order not found for webhook', ['stripe_payment_intent_id' => $paymentIntentId]);
+            return;
+        }
+
+        // Update order if not already updated
+        if ($order->payment_status !== 'paid') {
+            $order->update([
+                'payment_status' => 'paid',
+                'status' => 'confirmed',
+                'notes' => json_encode([
+                    'webhook_payment_succeeded' => $paymentIntent,
+                    'payment_completed_at' => now()->toISOString()
+                ])
+            ]);
+
+            Log::info('Order updated via Stripe webhook', ['order_id' => $order->id, 'payment_intent_id' => $paymentIntentId]);
+        }
+    }
+
+    /**
+     * Handle Stripe payment failed webhook
+     */
+    private function handleStripePaymentFailed($paymentIntent)
+    {
+        $paymentIntentId = $paymentIntent->id ?? null;
+
+        if (!$paymentIntentId) {
+            Log::warning('Missing payment_intent_id in failed payment webhook', $paymentIntent);
+            return;
+        }
+
+        $order = Order::where('stripe_payment_intent_id', $paymentIntentId)->first();
+        if (!$order) {
+            Log::warning('Order not found for failed payment webhook', ['stripe_payment_intent_id' => $paymentIntentId]);
+            return;
+        }
+
+        $order->update([
+            'payment_status' => 'failed',
+            'notes' => json_encode([
+                'webhook_payment_failed' => $paymentIntent,
+                'payment_failed_at' => now()->toISOString()
+            ])
+        ]);
+
+        Log::info('Order marked as failed via Stripe webhook', ['order_id' => $order->id, 'payment_intent_id' => $paymentIntentId]);
     }
 }    

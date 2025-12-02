@@ -5,6 +5,19 @@ use App\Http\Controllers\{ProfileController, CartController, WishlistController,
 
 
 Route::get('/', [FrontendController::class, 'index'])->name('front.index');
+
+// ================================================================================================
+// 🔗 WEBHOOK ROUTES (Before other routes to avoid conflicts)
+// ================================================================================================
+
+// ShipRocket webhook for tracking updates
+Route::post('/webhooks/shiprocket', [App\Http\Controllers\WebhookController::class, 'shiprocket'])
+    ->name('webhooks.shiprocket');
+
+// Razorpay webhook for payment events
+Route::post('/webhooks/razorpay', [App\Http\Controllers\WebhookController::class, 'razorpay'])
+    ->name('webhooks.razorpay');
+
 Route::get('/category/{slug}', [FrontendController::class, 'categoryProducts'])->name('category.products');
 Route::get('/search-suggestions', [FrontendController::class, 'searchSuggestions'])->name('search.suggestions');
 Route::get('/dashboard', function () {
@@ -157,6 +170,10 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/razorpay/success', [CheckoutController::class, 'razorpaySuccess'])->name('razorpay.success');
             Route::post('/razorpay/failure', [CheckoutController::class, 'razorpayFailure'])->name('razorpay.failure');
             
+            // Stripe specific routes
+            Route::post('/stripe/success', [CheckoutController::class, 'stripeSuccess'])->name('stripe.success');
+            Route::post('/stripe/failure', [CheckoutController::class, 'stripeFailure'])->name('stripe.failure');
+            
             // Payment management routes
             Route::get('/config', [PaymentController::class, 'getRazorpayConfig'])->name('config');
             Route::post('/verify', [PaymentController::class, 'verifyPayment'])->name('verify');
@@ -168,6 +185,9 @@ Route::middleware(['auth'])->group(function () {
         
         // Razorpay webhook (outside auth middleware)
         Route::post('/webhook/razorpay', [CheckoutController::class, 'razorpayWebhook'])->name('webhook.razorpay');
+        
+        // Stripe webhook (outside auth middleware)
+        Route::post('/webhook/stripe', [CheckoutController::class, 'stripeWebhook'])->name('webhook.stripe');
         
         //TEST EMAIL ROUTE (Remove in production)
         Route::get('/test-order-email', function() {
