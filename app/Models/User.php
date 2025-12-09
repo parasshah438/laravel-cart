@@ -358,4 +358,154 @@ class User extends Authenticatable
 
         return round($totalHours / $replies->count(), 1);
     }
+
+    // ================================================================================================
+    // 🛍️ SALE SYSTEM RELATIONSHIPS
+    // ================================================================================================
+
+    /**
+     * Get user's sale preferences
+     */
+    public function salePreferences()
+    {
+        return $this->hasOne(UserSalePreference::class);
+    }
+
+    /**
+     * Get user's sale behavior records
+     */
+    public function saleBehaviors()
+    {
+        return $this->hasMany(UserSaleBehavior::class);
+    }
+
+    /**
+     * Get user's sale notifications
+     */
+    public function saleNotifications()
+    {
+        return $this->hasMany(SaleNotification::class);
+    }
+
+    /**
+     * Get user's wishlist sale alerts
+     */
+    public function wishlistSaleAlerts()
+    {
+        return $this->hasMany(WishlistSaleAlert::class);
+    }
+
+    /**
+     * Get user's challenge participations
+     */
+    public function challengeParticipations()
+    {
+        return $this->hasMany(UserChallengeParticipation::class);
+    }
+
+    /**
+     * Get user's spin wheel history
+     */
+    public function spinHistory()
+    {
+        return $this->hasMany(UserSpinHistory::class);
+    }
+
+    /**
+     * Get user's banner interactions
+     */
+    public function bannerInteractions()
+    {
+        return $this->hasMany(BannerInteraction::class);
+    }
+
+    /**
+     * Get or create sale preferences for user
+     */
+    public function getSalePreferences()
+    {
+        return $this->salePreferences ?? $this->salePreferences()->create([
+            'notification_methods' => ['email'],
+            'notification_frequency' => 'daily',
+            'flash_sale_alerts' => true,
+            'bundle_deal_alerts' => true,
+            'wishlist_sale_alerts' => true,
+            'early_access_preference' => false,
+            'weekend_sale_preference' => true,
+            'min_discount_percentage' => 10,
+        ]);
+    }
+
+    /**
+     * Check if user can participate in a sale challenge
+     */
+    public function canParticipateInChallenge(SaleChallenge $challenge): bool
+    {
+        // Check if already participating
+        if ($this->challengeParticipations()->where('sale_challenge_id', $challenge->id)->exists()) {
+            return false;
+        }
+
+        // Check if challenge is active
+        if (!$challenge->isActive()) {
+            return false;
+        }
+
+        // Check user level requirements if any
+        if ($challenge->min_user_level && $this->getLevel() < $challenge->min_user_level) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Get user's gamification level based on purchases
+     */
+    public function getLevel(): int
+    {
+        $totalOrders = $this->orders()->completed()->count();
+        
+        if ($totalOrders >= 100) return 5; // VIP
+        if ($totalOrders >= 50) return 4;  // Platinum
+        if ($totalOrders >= 20) return 3;  // Gold
+        if ($totalOrders >= 5) return 2;   // Silver
+        return 1; // Bronze
+    }
+
+    /**
+     * Get user's total savings from sales
+     */
+    public function getTotalSaleSavings(): float
+    {
+        return $this->orders()
+            ->whereHas('saleOrder')
+            ->get()
+            ->sum(function ($order) {
+                return $order->saleOrder->getTotalDiscountAmount();
+            });
+    }
+
+    /**
+     * Get user's favorite sale categories based on purchase history
+     */
+    public function getFavoriteSaleCategories(): array
+    {
+        // Get categories from sale orders
+        $categories = $this->orders()
+            ->whereHas('saleOrder')
+            ->with(['items.product.category'])
+            ->get()
+            ->flatMap(function ($order) {
+                return $order->items->pluck('product.category.name');
+            })
+            ->filter()
+            ->countBy()
+            ->sortDesc()
+            ->take(5)
+            ->keys()
+            ->toArray();
+
+        return $categories;
+    }
 }

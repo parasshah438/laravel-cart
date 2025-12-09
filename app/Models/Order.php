@@ -589,4 +589,92 @@ class Order extends Model
             default => 'bg-secondary text-white'
         };
     }
+
+    // ================================================================================================
+    // 🛍️ SALE SYSTEM RELATIONSHIPS
+    // ================================================================================================
+
+    /**
+     * Get sale order details
+     */
+    public function saleOrder()
+    {
+        return $this->hasOne(SaleOrder::class);
+    }
+
+    /**
+     * Scope for orders placed during sales
+     */
+    public function scopeSaleOrders($query)
+    {
+        return $query->whereHas('saleOrder');
+    }
+
+    /**
+     * Scope for completed orders (useful for analytics)
+     */
+    public function scopeCompleted($query)
+    {
+        return $query->where('status', 'delivered');
+    }
+
+    // ================================================================================================
+    // 🛍️ SALE SYSTEM METHODS
+    // ================================================================================================
+
+    /**
+     * Check if this order was placed during a sale
+     */
+    public function isFromSale(): bool
+    {
+        return $this->saleOrder()->exists();
+    }
+
+    /**
+     * Get total savings from sale
+     */
+    public function getTotalSaleSavings(): float
+    {
+        if (!$this->saleOrder) {
+            return 0;
+        }
+
+        return $this->saleOrder->getTotalDiscountAmount();
+    }
+
+    /**
+     * Get sale savings percentage
+     */
+    public function getSaleSavingsPercentage(): float
+    {
+        if (!$this->saleOrder) {
+            return 0;
+        }
+
+        return $this->saleOrder->getDiscountPercentage();
+    }
+
+    /**
+     * Create sale order record when order involves sale items
+     */
+    public function createSaleOrderRecord(array $saleData): SaleOrder
+    {
+        return $this->saleOrder()->create($saleData);
+    }
+
+    /**
+     * Get sale breakdown for display
+     */
+    public function getSaleBreakdown(): ?array
+    {
+        return $this->saleOrder?->getSaleBreakdown();
+    }
+
+    /**
+     * Check if order has specific sale tag
+     */
+    public function hasSaleTag(string $tag): bool
+    {
+        return $this->saleOrder?->hasSaleTag($tag) ?? false;
+    }
 }

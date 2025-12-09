@@ -206,5 +206,83 @@ Route::prefix('admin/support')->name('admin.support.')->middleware(['auth'])->gr
         // Route::resource('carriers', \App\Http\Controllers\Admin\ShippingCarrierController::class);
         // Route::resource('methods', \App\Http\Controllers\Admin\ShippingMethodController::class);
     });
+});
+
+// ================================================================================================
+// 🛍️ ADMIN SALES MANAGEMENT SYSTEM
+// ================================================================================================
+Route::prefix('admin/sales')->name('admin.sales.')->middleware(['auth'])->group(function () {
     
+    // ================================================================================================
+    // 🔥 SALE EVENTS MANAGEMENT
+    // ================================================================================================
+    Route::prefix('events')->name('events.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Admin\SaleEventController::class, 'index'])->name('index');
+        Route::get('/create', [\App\Http\Controllers\Admin\SaleEventController::class, 'create'])->name('create');
+        Route::post('/', [\App\Http\Controllers\Admin\SaleEventController::class, 'store'])->name('store');
+        Route::get('/{saleEvent}', [\App\Http\Controllers\Admin\SaleEventController::class, 'show'])->name('show');
+        Route::get('/{saleEvent}/edit', [\App\Http\Controllers\Admin\SaleEventController::class, 'edit'])->name('edit');
+        Route::put('/{saleEvent}', [\App\Http\Controllers\Admin\SaleEventController::class, 'update'])->name('update');
+        Route::delete('/{saleEvent}', [\App\Http\Controllers\Admin\SaleEventController::class, 'destroy'])->name('destroy');
+        
+        // Product management for sales
+        Route::post('/{saleEvent}/products', [\App\Http\Controllers\Admin\SaleEventController::class, 'addProducts'])->name('add-products');
+        Route::delete('/{saleEvent}/products/{product}', [\App\Http\Controllers\Admin\SaleEventController::class, 'removeProduct'])->name('remove-product');
+        
+        // AJAX endpoints
+        Route::post('/{saleEvent}/toggle-status', [\App\Http\Controllers\Admin\SaleEventController::class, 'toggleStatus'])->name('toggle-status');
+        Route::get('/ajax/products', [\App\Http\Controllers\Admin\SaleEventController::class, 'getProducts'])->name('get-products');
+    });
+
+    // ================================================================================================
+    // 📦 BUNDLE DEALS MANAGEMENT
+    // ================================================================================================
+    Route::prefix('bundles')->name('bundles.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Admin\BundleDealController::class, 'index'])->name('index');
+        Route::get('/create', [\App\Http\Controllers\Admin\BundleDealController::class, 'create'])->name('create');
+        Route::post('/', [\App\Http\Controllers\Admin\BundleDealController::class, 'store'])->name('store');
+        Route::get('/{bundleDeal}', [\App\Http\Controllers\Admin\BundleDealController::class, 'show'])->name('show');
+        Route::get('/{bundleDeal}/edit', [\App\Http\Controllers\Admin\BundleDealController::class, 'edit'])->name('edit');
+        Route::put('/{bundleDeal}', [\App\Http\Controllers\Admin\BundleDealController::class, 'update'])->name('update');
+        Route::delete('/{bundleDeal}', [\App\Http\Controllers\Admin\BundleDealController::class, 'destroy'])->name('destroy');
+        
+        // AJAX endpoints
+        Route::post('/{bundleDeal}/toggle-status', [\App\Http\Controllers\Admin\BundleDealController::class, 'toggleStatus'])->name('toggle-status');
+        Route::get('/ajax/products', [\App\Http\Controllers\Admin\BundleDealController::class, 'getProducts'])->name('get-products');
+    });
+
+    // ================================================================================================
+    // 🎯 DYNAMIC COUPONS MANAGEMENT
+    // ================================================================================================
+    Route::prefix('coupons')->name('coupons.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Admin\DynamicCouponController::class, 'index'])->name('index');
+        Route::get('/create', [\App\Http\Controllers\Admin\DynamicCouponController::class, 'create'])->name('create');
+        Route::post('/', [\App\Http\Controllers\Admin\DynamicCouponController::class, 'store'])->name('store');
+        Route::get('/{dynamicCoupon}', [\App\Http\Controllers\Admin\DynamicCouponController::class, 'show'])->name('show');
+        Route::get('/{dynamicCoupon}/edit', [\App\Http\Controllers\Admin\DynamicCouponController::class, 'edit'])->name('edit');
+        Route::put('/{dynamicCoupon}', [\App\Http\Controllers\Admin\DynamicCouponController::class, 'update'])->name('update');
+        Route::delete('/{dynamicCoupon}', [\App\Http\Controllers\Admin\DynamicCouponController::class, 'destroy'])->name('destroy');
+        
+        // Bulk operations
+        Route::post('/generate-bulk', [\App\Http\Controllers\Admin\DynamicCouponController::class, 'generateBulk'])->name('generate-bulk');
+        
+        // AJAX endpoints
+        Route::post('/{dynamicCoupon}/toggle-status', [\App\Http\Controllers\Admin\DynamicCouponController::class, 'toggleStatus'])->name('toggle-status');
+        Route::get('/ajax/analytics', [\App\Http\Controllers\Admin\DynamicCouponController::class, 'analytics'])->name('analytics');
+    });
+
+    // ================================================================================================
+    // 📊 SALES ANALYTICS & REPORTING
+    // ================================================================================================
+    Route::prefix('analytics')->name('analytics.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Admin\SaleAnalyticsController::class, 'index'])->name('index');
+        Route::get('/events/{saleEvent}', [\App\Http\Controllers\Admin\SaleAnalyticsController::class, 'eventAnalytics'])->name('event');
+        Route::get('/banners', [\App\Http\Controllers\Admin\SaleAnalyticsController::class, 'bannerAnalytics'])->name('banners');
+        
+        // Export functionality
+        Route::get('/export', [\App\Http\Controllers\Admin\SaleAnalyticsController::class, 'export'])->name('export');
+        
+        // Real-time API
+        Route::get('/api/real-time', [\App\Http\Controllers\Admin\SaleAnalyticsController::class, 'realTimeApi'])->name('api.real-time');
+    });
 });

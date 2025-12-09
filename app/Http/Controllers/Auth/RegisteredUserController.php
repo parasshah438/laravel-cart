@@ -31,8 +31,10 @@ class RegisteredUserController extends Controller
     {
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
+            'email' => ['required', 'string', 'lowercase','email','indisposable','max:255','unique:'.User::class],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
+        ],[
+            'email.indisposable' => 'This appears to be a disposable email address. We can only accept long-term email addresses.',
         ]);
 
         $user = User::create([
@@ -42,9 +44,7 @@ class RegisteredUserController extends Controller
         ]);
 
         event(new Registered($user));
-
         Auth::login($user);
-
         return redirect(route('dashboard', absolute: false));
     }
 }
