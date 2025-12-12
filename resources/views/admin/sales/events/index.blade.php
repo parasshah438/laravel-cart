@@ -47,10 +47,12 @@
                             <select class="form-control" id="type" name="type">
                                 <option value="">All Types</option>
                                 <option value="flash_sale" {{ request('type') == 'flash_sale' ? 'selected' : '' }}>Flash Sale</option>
-                                <option value="weekend_sale" {{ request('type') == 'weekend_sale' ? 'selected' : '' }}>Weekend Sale</option>
-                                <option value="holiday_sale" {{ request('type') == 'holiday_sale' ? 'selected' : '' }}>Holiday Sale</option>
-                                <option value="clearance_sale" {{ request('type') == 'clearance_sale' ? 'selected' : '' }}>Clearance Sale</option>
+                                <option value="mega_sale" {{ request('type') == 'mega_sale' ? 'selected' : '' }}>Mega Sale</option>
+                                <option value="deal_of_day" {{ request('type') == 'deal_of_day' ? 'selected' : '' }}>Deal of the Day</option>
+                                <option value="festival_sale" {{ request('type') == 'festival_sale' ? 'selected' : '' }}>Festival Sale</option>
                                 <option value="seasonal_sale" {{ request('type') == 'seasonal_sale' ? 'selected' : '' }}>Seasonal Sale</option>
+                                <option value="brand_day" {{ request('type') == 'brand_day' ? 'selected' : '' }}>Brand Day</option>
+                                <option value="category_sale" {{ request('type') == 'category_sale' ? 'selected' : '' }}>Category Sale</option>
                             </select>
                         </div>
                     </div>
@@ -60,8 +62,9 @@
                             <select class="form-control" id="status" name="status">
                                 <option value="">All Status</option>
                                 <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Active</option>
-                                <option value="upcoming" {{ request('status') == 'upcoming' ? 'selected' : '' }}>Upcoming</option>
-                                <option value="ended" {{ request('status') == 'ended' ? 'selected' : '' }}>Ended</option>
+                                <option value="inactive" {{ request('status') == 'inactive' ? 'selected' : '' }}>Inactive</option>
+                                <option value="scheduled" {{ request('status') == 'scheduled' ? 'selected' : '' }}>Scheduled</option>
+                                <option value="expired" {{ request('status') == 'expired' ? 'selected' : '' }}>Expired</option>
                             </select>
                         </div>
                     </div>
@@ -145,20 +148,24 @@
                                     </td>
                                     <td>
                                         <span class="badge bg-info text-white mb-1">
-                                            {{ ucfirst(str_replace('_', ' ', $event->sale_type)) }}
+                                            {{ ucfirst(str_replace('_', ' ', $event->type)) }}
                                         </span>
                                         <br>
-                                        @if($event->isActive())
+                                        @if($event->status == 'active')
                                             <span class="badge bg-success">
                                                 <i class="fas fa-play"></i> Active
                                             </span>
-                                        @elseif($event->start_time > now())
+                                        @elseif($event->status == 'scheduled')
                                             <span class="badge bg-warning">
-                                                <i class="fas fa-clock"></i> Upcoming
+                                                <i class="fas fa-clock"></i> Scheduled
+                                            </span>
+                                        @elseif($event->status == 'inactive')
+                                            <span class="badge bg-secondary">
+                                                <i class="fas fa-pause"></i> Inactive
                                             </span>
                                         @else
-                                            <span class="badge bg-secondary">
-                                                <i class="fas fa-stop"></i> Ended
+                                            <span class="badge bg-danger">
+                                                <i class="fas fa-stop"></i> Expired
                                             </span>
                                         @endif
 
@@ -171,16 +178,17 @@
                                     <td>
                                         <div>
                                             <strong>Start:</strong><br>
-                                            <small>{{ $event->start_time->format('M d, Y H:i') }}</small>
+                                            <small>{{ $event->starts_at->format('M d, Y H:i') }}</small>
                                         </div>
                                         <div class="mt-2">
                                             <strong>End:</strong><br>
-                                            <small>{{ $event->end_time->format('M d, Y H:i') }}</small>
+                                            <small>{{ $event->ends_at->format('M d, Y H:i') }}</small>
                                         </div>
-                                        @if($event->isActive())
+                                        @if($event->status == 'active')
                                             <div class="mt-2">
                                                 <small class="text-danger">
-                                                    <i class="fas fa-clock"></i> {{ $event->getTimeRemaining() }}
+                                                    <i class="fas fa-clock"></i> 
+                                                    {{ $event->ends_at->diffForHumans() }}
                                                 </small>
                                             </div>
                                         @endif
@@ -188,33 +196,36 @@
                                     <td class="text-center">
                                         <div class="mb-2">
                                             <span class="badge bg-primary font-size-lg">
-                                                {{ $event->sale_products_count }}
+                                                {{ $event->saleProducts->count() }}
                                             </span>
                                             <br><small>Products</small>
                                         </div>
-                                        @if($event->max_discount_percentage)
+                                        @if($event->discount_percentage)
                                             <small class="text-success">
-                                                Max {{ $event->max_discount_percentage }}% off
+                                                Max {{ $event->discount_percentage }}% off
                                             </small>
                                         @endif
                                     </td>
                                     <td>
                                         <div class="row text-center">
                                             <div class="col-6">
-                                                <div class="text-primary font-weight-bold">{{ $event->sale_orders_count }}</div>
+                                                <div class="text-primary font-weight-bold">{{ $event->total_orders ?? 0 }}</div>
                                                 <small>Orders</small>
                                             </div>
                                             <div class="col-6">
                                                 <div class="text-success font-weight-bold">
-                                                    ${{ number_format($event->saleOrders->sum('final_amount'), 2) }}
+                                                    ${{ number_format($event->total_revenue ?? 0, 2) }}
                                                 </div>
                                                 <small>Revenue</small>
                                             </div>
                                         </div>
-                                        @if($event->analytics)
+                                        @php
+                                            $latestAnalytics = $event->analytics()->latest()->first();
+                                        @endphp
+                                        @if($latestAnalytics && $latestAnalytics->overall_conversion_rate > 0)
                                             <div class="mt-2 text-center">
                                                 <small class="text-info">
-                                                    {{ $event->analytics->conversion_rate }}% conversion
+                                                    {{ number_format($latestAnalytics->overall_conversion_rate, 1) }}% conversion
                                                 </small>
                                             </div>
                                         @endif
@@ -230,10 +241,10 @@
                                                 <i class="fas fa-edit"></i> Edit
                                             </a>
                                             <button type="button" 
-                                                    class="btn btn-sm btn-{{ $event->is_active ? 'danger' : 'success' }} mb-1"
-                                                    onclick="toggleStatus({{ $event->id }}, {{ $event->is_active ? 'false' : 'true' }})">
-                                                <i class="fas fa-{{ $event->is_active ? 'pause' : 'play' }}"></i> 
-                                                {{ $event->is_active ? 'Deactivate' : 'Activate' }}
+                                                    class="btn btn-sm btn-{{ $event->status == 'active' ? 'danger' : 'success' }} mb-1"
+                                                    onclick="toggleStatus({{ $event->id }}, '{{ $event->status == 'active' ? 'inactive' : 'active' }}')">
+                                                <i class="fas fa-{{ $event->status == 'active' ? 'pause' : 'play' }}"></i> 
+                                                {{ $event->status == 'active' ? 'Deactivate' : 'Activate' }}
                                             </button>
                                             <form action="{{ route('admin.sales.events.destroy', $event) }}" 
                                                   method="POST" 

@@ -57,35 +57,35 @@
                                 <div class="row">
                                     <div class="col-md-6">
                                         <div class="form-group">
-                                            <label for="sale_type" class="form-label required">Sale Type</label>
-                                            <select class="form-control @error('sale_type') is-invalid @enderror" 
-                                                    id="sale_type" 
-                                                    name="sale_type" 
+                                            <label for="type" class="form-label required">Sale Type</label>
+                                            <select class="form-control @error('type') is-invalid @enderror" 
+                                                    id="type" 
+                                                    name="type" 
                                                     required>
                                                 <option value="">Select Sale Type</option>
                                                 @foreach($saleTypes as $key => $label)
-                                                    <option value="{{ $key }}" {{ old('sale_type') == $key ? 'selected' : '' }}>
+                                                    <option value="{{ $key }}" {{ old('type') == $key ? 'selected' : '' }}>
                                                         {{ $label }}
                                                     </option>
                                                 @endforeach
                                             </select>
-                                            @error('sale_type')
+                                            @error('type')
                                                 <div class="invalid-feedback">{{ $message }}</div>
                                             @enderror
                                         </div>
                                     </div>
                                     <div class="col-md-6">
                                         <div class="form-group">
-                                            <label for="priority" class="form-label required">Priority (1-10)</label>
-                                            <input type="number" 
-                                                   class="form-control @error('priority') is-invalid @enderror" 
-                                                   id="priority" 
-                                                   name="priority" 
-                                                   value="{{ old('priority', 5) }}" 
-                                                   min="1" 
-                                                   max="10"
-                                                   required>
-                                            @error('priority')
+                                            <label for="status" class="form-label required">Status</label>
+                                            <select class="form-control @error('status') is-invalid @enderror" 
+                                                    id="status" 
+                                                    name="status" 
+                                                    required>
+                                                <option value="draft" {{ old('status', 'draft') == 'draft' ? 'selected' : '' }}>Draft</option>
+                                                <option value="scheduled" {{ old('status') == 'scheduled' ? 'selected' : '' }}>Scheduled</option>
+                                                <option value="active" {{ old('status') == 'active' ? 'selected' : '' }}>Active</option>
+                                            </select>
+                                            @error('status')
                                                 <div class="invalid-feedback">{{ $message }}</div>
                                             @enderror
                                         </div>
@@ -131,28 +131,28 @@
                                 <div class="row">
                                     <div class="col-md-6">
                                         <div class="form-group">
-                                            <label for="start_time" class="form-label required">Start Time</label>
+                                            <label for="starts_at" class="form-label required">Start Time</label>
                                             <input type="datetime-local" 
-                                                   class="form-control @error('start_time') is-invalid @enderror" 
-                                                   id="start_time" 
-                                                   name="start_time" 
-                                                   value="{{ old('start_time') }}"
+                                                   class="form-control @error('starts_at') is-invalid @enderror" 
+                                                   id="starts_at" 
+                                                   name="starts_at" 
+                                                   value="{{ old('starts_at') }}"
                                                    required>
-                                            @error('start_time')
+                                            @error('starts_at')
                                                 <div class="invalid-feedback">{{ $message }}</div>
                                             @enderror
                                         </div>
                                     </div>
                                     <div class="col-md-6">
                                         <div class="form-group">
-                                            <label for="end_time" class="form-label required">End Time</label>
+                                            <label for="ends_at" class="form-label required">End Time</label>
                                             <input type="datetime-local" 
-                                                   class="form-control @error('end_time') is-invalid @enderror" 
-                                                   id="end_time" 
-                                                   name="end_time" 
-                                                   value="{{ old('end_time') }}"
+                                                   class="form-control @error('ends_at') is-invalid @enderror" 
+                                                   id="ends_at" 
+                                                   name="ends_at" 
+                                                   value="{{ old('ends_at') }}"
                                                    required>
-                                            @error('end_time')
+                                            @error('ends_at')
                                                 <div class="invalid-feedback">{{ $message }}</div>
                                             @enderror
                                         </div>
@@ -220,13 +220,13 @@
                                 <div class="form-check mb-3">
                                     <input class="form-check-input" 
                                            type="checkbox" 
-                                           id="is_active" 
-                                           name="is_active" 
+                                           id="is_public" 
+                                           name="is_public" 
                                            value="1" 
-                                           {{ old('is_active', true) ? 'checked' : '' }}>
-                                    <label class="form-check-label" for="is_active">
-                                        <strong>Active</strong>
-                                        <br><small class="text-muted">Enable this sale event immediately</small>
+                                           {{ old('is_public', true) ? 'checked' : '' }}>
+                                    <label class="form-check-label" for="is_public">
+                                        <strong>Public</strong>
+                                        <br><small class="text-muted">Make this sale visible to all users</small>
                                     </label>
                                 </div>
 
@@ -271,8 +271,8 @@
                                     <p class="text-muted" id="preview_type">Sale Type</p>
                                     <div class="row text-center">
                                         <div class="col-6">
-                                            <div class="text-primary font-weight-bold" id="preview_priority">5</div>
-                                            <small>Priority</small>
+                                            <div class="text-primary font-weight-bold" id="preview_priority">Draft</div>
+                                            <small>Status</small>
                                         </div>
                                         <div class="col-6">
                                             <div class="text-success font-weight-bold" id="preview_discount">0%</div>
@@ -312,26 +312,26 @@
 document.addEventListener('DOMContentLoaded', function() {
     // Live preview updates
     const nameInput = document.getElementById('name');
-    const typeSelect = document.getElementById('sale_type');
-    const priorityInput = document.getElementById('priority');
+    const typeSelect = document.getElementById('type');
+    const statusSelect = document.getElementById('status');
     const discountInput = document.getElementById('max_discount_percentage');
 
     function updatePreview() {
         document.getElementById('preview_name').textContent = nameInput.value || 'Your Sale Event';
         document.getElementById('preview_type').textContent = typeSelect.options[typeSelect.selectedIndex].text;
-        document.getElementById('preview_priority').textContent = priorityInput.value || '5';
+        document.getElementById('preview_priority').textContent = statusSelect.options[statusSelect.selectedIndex].text;
         document.getElementById('preview_discount').textContent = (discountInput.value || '0') + '%';
     }
 
     nameInput.addEventListener('input', updatePreview);
     typeSelect.addEventListener('change', updatePreview);
-    priorityInput.addEventListener('input', updatePreview);
+    statusSelect.addEventListener('change', updatePreview);
     discountInput.addEventListener('input', updatePreview);
 
     // Form validation
     document.getElementById('saleEventForm').addEventListener('submit', function(e) {
-        const startTime = new Date(document.getElementById('start_time').value);
-        const endTime = new Date(document.getElementById('end_time').value);
+        const startTime = new Date(document.getElementById('starts_at').value);
+        const endTime = new Date(document.getElementById('ends_at').value);
         const now = new Date();
 
         if (startTime <= now) {
@@ -357,8 +357,8 @@ document.addEventListener('DOMContentLoaded', function() {
                        String(now.getHours()).padStart(2, '0') + ':' + 
                        String(now.getMinutes()).padStart(2, '0');
     
-    document.getElementById('start_time').setAttribute('min', minDateTime);
-    document.getElementById('end_time').setAttribute('min', minDateTime);
+    document.getElementById('starts_at').setAttribute('min', minDateTime);
+    document.getElementById('ends_at').setAttribute('min', minDateTime);
 });
 </script>
 

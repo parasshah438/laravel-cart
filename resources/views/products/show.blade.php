@@ -263,7 +263,16 @@
         <div class="col-md-6">
             <div class="bg-white p-4 rounded shadow-sm">
                 {{-- Price --}}
-                <h4 class="text-success fw-bold">₹{{ number_format($product->price, 2) }}</h4>
+                @if($product->isOnSale())
+                    <h4 class="text-success fw-bold">₹{{ number_format($product->getSalePrice(), 2) }}</h4>
+                    <p class="text-muted text-decoration-line-through">Original Price: ₹{{ number_format($product->price, 2) }}</p>
+                    <div class="alert alert-success p-2">
+                        <strong>{{ number_format($product->getDiscountPercentage(), 1) }}% OFF</strong> - 
+                        You Save ₹{{ number_format($product->getSavingsAmount(), 2) }}!
+                    </div>
+                @else
+                    <h4 class="text-success fw-bold">₹{{ number_format($product->price, 2) }}</h4>
+                @endif
 
                 {{-- Stock Status --}}
                 @php 

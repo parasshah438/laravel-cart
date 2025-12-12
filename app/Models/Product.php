@@ -226,9 +226,9 @@ class Product extends Model
     public function activeSaleEvents()
     {
         return $this->belongsToMany(SaleEvent::class, 'sale_products')
-            ->where('is_active', true)
-            ->where('start_time', '<=', now())
-            ->where('end_time', '>=', now());
+            ->where('sale_events.status', 'active')
+            ->where('sale_events.starts_at', '<=', now())
+            ->where('sale_events.ends_at', '>=', now());
     }
 
     /**
@@ -237,9 +237,9 @@ class Product extends Model
     public function activeBundleDeals()
     {
         return $this->belongsToMany(BundleDeal::class, 'bundle_products')
-            ->where('is_active', true)
-            ->where('start_time', '<=', now())
-            ->where('end_time', '>=', now());
+            ->where('bundle_deals.status', 'active')
+            ->where('bundle_deals.starts_at', '<=', now())
+            ->where('bundle_deals.ends_at', '>=', now());
     }
 
     /**
@@ -285,9 +285,9 @@ class Product extends Model
     {
         $activeSale = $this->saleProducts()
             ->whereHas('saleEvent', function ($query) {
-                $query->where('is_active', true)
-                    ->where('start_time', '<=', now())
-                    ->where('end_time', '>=', now());
+                $query->where('sale_events.status', 'active')
+                    ->where('sale_events.starts_at', '<=', now())
+                    ->where('sale_events.ends_at', '>=', now());
             })
             ->orderBy('sale_price')
             ->first();
@@ -352,7 +352,7 @@ class Product extends Model
                 'name' => $sale->name,
                 'discount_percentage' => $this->getDiscountPercentage(),
                 'sale_price' => $this->getSalePrice(),
-                'end_time' => $sale->end_time,
+                'ends_at' => $sale->ends_at,
             ];
         }
 
@@ -364,7 +364,7 @@ class Product extends Model
                 'name' => $bundle->name,
                 'description' => $bundle->description,
                 'bundle_price' => $bundle->bundle_price,
-                'end_time' => $bundle->end_time,
+                'ends_at' => $bundle->ends_at,
             ];
         }
 

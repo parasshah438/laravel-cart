@@ -132,6 +132,32 @@
             margin-bottom: 10px;
         }
         
+        .product-price .sale-price {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #28a745;
+            display: block;
+        }
+        
+        .product-price .original-price {
+            font-size: 0.9rem;
+            font-weight: 400;
+            color: #6c757d;
+            display: block;
+            margin-top: 2px;
+        }
+        
+        .product-price .sale-badge {
+            background: #dc3545;
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 10px;
+            display: inline-block;
+            margin-top: 4px;
+        }
+        
         .product-actions {
             display: flex;
             gap: 10px;
@@ -466,7 +492,15 @@
                                             {{ $product->name }}
                                         </a>
                                     </h6>
-                                    <div class="product-price">₹{{ number_format($product->price, 2) }}</div>
+                                    <div class="product-price">
+                                        @if($product->isOnSale())
+                                            <span class="sale-price">₹{{ number_format($product->getSalePrice(), 2) }}</span>
+                                            <span class="original-price text-muted text-decoration-line-through">₹{{ number_format($product->price, 2) }}</span>
+                                            <div class="sale-badge">{{ number_format($product->getDiscountPercentage(), 1) }}% OFF</div>
+                                        @else
+                                            ₹{{ number_format($product->price, 2) }}
+                                        @endif
+                                    </div>
                                     
                                     <div class="product-actions">
                                         @auth

@@ -8,7 +8,14 @@
                     <tr data-product-row>
                         <td>{{ $item->product->name }}</td>
                         <td>{{ $item->quantity }}</td>
-                        <td>₹{{ $item->product->price }}</td>
+                        <td>
+                            @if($item->product->isOnSale())
+                                ₹{{ number_format($item->product->getSalePrice(), 2) }}
+                                <small class="text-muted text-decoration-line-through">(₹{{ number_format($item->product->price, 2) }})</small>
+                            @else
+                                ₹{{ $item->product->price }}
+                            @endif
+                        </td>
                         <!-- Add remove button, quantity update etc. -->
                     </tr>
                 @endforeach

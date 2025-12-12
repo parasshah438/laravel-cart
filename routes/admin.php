@@ -226,12 +226,12 @@ Route::prefix('admin/sales')->name('admin.sales.')->middleware(['auth'])->group(
         Route::delete('/{saleEvent}', [\App\Http\Controllers\Admin\SaleEventController::class, 'destroy'])->name('destroy');
         
         // Product management for sales
-        Route::post('/{saleEvent}/products', [\App\Http\Controllers\Admin\SaleEventController::class, 'addProducts'])->name('add-products');
+        Route::post('/{id}/products', [\App\Http\Controllers\Admin\SaleEventController::class, 'addProducts'])->name('add-products')->where('id', '[0-9]+');
         Route::delete('/{saleEvent}/products/{product}', [\App\Http\Controllers\Admin\SaleEventController::class, 'removeProduct'])->name('remove-product');
         
-        // AJAX endpoints
+        // AJAX endpoints  
         Route::post('/{saleEvent}/toggle-status', [\App\Http\Controllers\Admin\SaleEventController::class, 'toggleStatus'])->name('toggle-status');
-        Route::get('/ajax/products', [\App\Http\Controllers\Admin\SaleEventController::class, 'getProducts'])->name('get-products');
+        Route::get('/{id}/ajax/products', [\App\Http\Controllers\Admin\SaleEventController::class, 'getProducts'])->name('get-products')->where('id', '[0-9]+');
     });
 
     // ================================================================================================

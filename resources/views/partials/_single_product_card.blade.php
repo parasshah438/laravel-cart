@@ -17,7 +17,13 @@
         <h6 class="card-title mb-2">
             <a href="{{ route('product.show', $product->slug) }}" class="text-decoration-none text-dark text-truncate d-block">{{ $product->name }}</a>
         </h6>
-        <p class="text-success fw-bold mb-2">₹{{ number_format($product->price, 2) }}</p>
+        @if($product->isOnSale())
+            <p class="text-success fw-bold mb-1">₹{{ number_format($product->getSalePrice(), 2) }}</p>
+            <p class="text-muted text-decoration-line-through small mb-1">₹{{ number_format($product->price, 2) }}</p>
+            <div class="badge bg-danger small mb-2">{{ number_format($product->getDiscountPercentage(), 1) }}% OFF</div>
+        @else
+            <p class="text-success fw-bold mb-2">₹{{ number_format($product->price, 2) }}</p>
+        @endif
         
         @if($stock?->isOutOfStock())
             <button class="btn btn-secondary w-100 btn-sm mt-auto" disabled>Out of Stock</button>

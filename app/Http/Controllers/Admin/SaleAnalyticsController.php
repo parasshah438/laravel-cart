@@ -78,11 +78,20 @@ class SaleAnalyticsController extends Controller
         if (!$analytics) {
             $analytics = SaleAnalytic::create([
                 'sale_event_id' => $saleEvent->id,
-                'total_views' => 0,
-                'total_clicks' => 0,
-                'total_orders' => 0,
-                'total_revenue' => 0,
-                'conversion_rate' => 0
+                'analytics_date' => today(),
+                'page_views' => 0,
+                'unique_visitors' => 0,
+                'products_viewed' => 0,
+                'add_to_cart_count' => 0,
+                'checkout_initiated' => 0,
+                'orders_completed' => 0,
+                'gross_revenue' => 0,
+                'net_revenue' => 0,
+                'total_discount_given' => 0,
+                'avg_order_value' => 0,
+                'view_to_cart_rate' => 0,
+                'cart_to_order_rate' => 0,
+                'overall_conversion_rate' => 0
             ]);
         }
 

@@ -334,7 +334,13 @@
                             <p class="text-muted small mb-3">{{ Str::limit($product->description, 100) }}</p>
                             
                             <div class="mb-3">
-                                @if($product->discount_price)
+                                @if($product->isOnSale())
+                                    <div class="price-current">₹{{ number_format($product->getSalePrice(), 2) }}</div>
+                                    <div class="price-original">₹{{ number_format($product->price, 2) }}</div>
+                                    <div class="text-success small">
+                                        Save {{ number_format($product->getDiscountPercentage(), 1) }}%
+                                    </div>
+                                @elseif($product->discount_price)
                                     <div class="price-current">₹{{ number_format($product->discount_price, 2) }}</div>
                                     <div class="price-original">₹{{ number_format($product->price, 2) }}</div>
                                     <div class="text-success small">
@@ -390,7 +396,10 @@
                                 </td>
                                 @foreach($comparedProducts as $product)
                                 <td class="comparison-value">
-                                    @if($product->discount_price)
+                                    @if($product->isOnSale())
+                                        <div class="price-current">₹{{ number_format($product->getSalePrice(), 2) }}</div>
+                                        <div class="price-original">₹{{ number_format($product->price, 2) }}</div>
+                                    @elseif($product->discount_price)
                                         <div class="price-current">₹{{ number_format($product->discount_price, 2) }}</div>
                                         <div class="price-original">₹{{ number_format($product->price, 2) }}</div>
                                     @else

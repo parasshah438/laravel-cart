@@ -68,7 +68,12 @@
                             </a>
                             <div class="card-body p-2">
                                 <h6 class="card-title mb-1">{{ Str::limit($product->name, 40) }}</h6>
-                                <p class="card-text text-muted mb-0">₹{{ $product->price }}</p>
+                                @if($product->isOnSale())
+                                    <p class="text-success fw-bold mb-0">₹{{ number_format($product->getSalePrice(), 2) }}</p>
+                                    <p class="text-muted text-decoration-line-through small">₹{{ number_format($product->price, 2) }}</p>
+                                @else
+                                    <p class="card-text text-muted mb-0">₹{{ $product->price }}</p>
+                                @endif
                             </div>
                         </div>
                     </li>

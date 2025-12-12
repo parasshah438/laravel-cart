@@ -34,7 +34,13 @@
                     
                     {{-- Price Display --}}
                     <div class="mb-2">
-                        <span class="h5 text-primary mb-0">₹{{ number_format($product->price, 2) }}</span>
+                        @if($product->isOnSale())
+                            <span class="h5 text-success mb-0">₹{{ number_format($product->getSalePrice(), 2) }}</span>
+                            <span class="text-muted text-decoration-line-through small">₹{{ number_format($product->price, 2) }}</span>
+                            <div class="badge bg-danger small">{{ number_format($product->getDiscountPercentage(), 1) }}% OFF</div>
+                        @else
+                            <span class="h5 text-primary mb-0">₹{{ number_format($product->price, 2) }}</span>
+                        @endif
                         @if($product->average_rating)
                             <div class="mt-1">
                                 <span class="rating-stars">
