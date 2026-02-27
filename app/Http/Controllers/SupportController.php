@@ -504,12 +504,12 @@ class SupportController extends Controller
 
             // Send email notification to admin
             $adminEmail = config('mail.admin_email', 'admin@laravel-cart.com');
-            
+
             try {
-                Mail::to($adminEmail)->send(new ContactFormSubmitted($contact));
+                Mail::to($adminEmail)->queue(new ContactFormSubmitted($contact));
             } catch (\Exception $mailException) {
                 // Log mail error but don't fail the request
-                Log::error('Failed to send contact form email: ' . $mailException->getMessage());
+                Log::error('Failed to queue contact form email: ' . $mailException->getMessage());
             }
 
             return back()

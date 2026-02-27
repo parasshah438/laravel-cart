@@ -405,7 +405,7 @@
                                 <tbody>
                                     @if(isset($order->items) && $order->items->count() > 0)
                                         @foreach($order->items as $item)
-                                            <tr>
+                                            <tr class="{{ $item->item_status === 'cancelled' ? 'table-secondary opacity-75' : '' }}">
                                                 <td class="p-3" style="width: 100px;">
                                                     @if($item->product && $item->product->media && count($item->product->media))
                                                         <img src="{{ asset('storage/' . $item->product->media[0]->file_path) }}" 
@@ -418,20 +418,59 @@
                                                     @endif
                                                 </td>
                                                 <td class="p-3">
-                                                    <h6 class="mb-1 fw-bold">{{ $item->product_name ?? ($item->product->name ?? 'Premium Wireless Headphones') }}</h6>
-                                                    <p class="text-muted mb-2 small">{{ $item->product->description ?? 'High-quality wireless headphones with noise cancellation' }}</p>
-                                                    <div class="d-flex align-items-center gap-3">
+                                                    <h6 class="mb-1 fw-bold">{{ $item->product_name ?? ($item->product->name ?? 'Product') }}</h6>
+                                                    <p class="text-muted mb-2 small">{{ $item->product->description ?? '' }}</p>
+                                                    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
                                                         <span class="badge bg-light text-dark">
-                                                            <i class="fas fa-tag me-1"></i>₹{{ number_format($item->price ?? 2999, 2) }}
+                                                            <i class="fas fa-tag me-1"></i>₹{{ number_format($item->price ?? 0, 2) }}
                                                         </span>
                                                         <span class="badge bg-primary">
                                                             <i class="fas fa-cubes me-1"></i>Qty: {{ $item->quantity ?? 1 }}
                                                         </span>
+                                                        {{-- Per-item status badge --}}
+                                                        <span class="badge {{ $item->item_status_badge_class }}">
+                                                            {{ $item->item_status_label }}
+                                                        </span>
+                                                        {{-- Non-returnable tag --}}
+                                                        @if($item->product && !$item->product->is_return)
+                                                            <span class="badge bg-secondary" title="This product is non-returnable / non-cancellable">
+                                                                <i class="fas fa-ban me-1"></i>Non-Returnable
+                                                            </span>
+                                                        @endif
                                                     </div>
+                                                    {{-- Cancellation info --}}
+                                                    @if($item->item_status === 'cancelled' && $item->cancelled_at)
+                                                        <small class="text-danger">
+                                                            <i class="fas fa-times-circle me-1"></i>
+                                                            Cancelled on {{ \Carbon\Carbon::parse($item->cancelled_at)->format('M d, Y') }}
+                                                        </small>
+                                                    @endif
+                                                    {{-- Per-item Cancel button --}}
+                                                    @if($item->canBeCancelled())
+                                                        <div class="mt-2">
+                                                            <form method="POST" 
+                                                                  action="{{ route('order.item.cancel', [$order, $item]) }}"
+                                                                  onsubmit="return confirm('Cancel {{ addslashes($item->product_name) }}? This cannot be undone.')">
+                                                                @csrf
+                                                                <button type="submit" class="btn btn-outline-danger btn-sm">
+                                                                    <i class="fas fa-times me-1"></i>Cancel This Item
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                    @endif
                                                 </td>
                                                 <td class="p-3 text-end">
-                                                    <div class="fw-bold h5 mb-0 text-primary">₹{{ number_format($item->total ?? ($item->price ?? 2999) * ($item->quantity ?? 1), 2) }}</div>
-                                                    <small class="text-muted">Total</small>
+                                                    @if($item->item_status === 'cancelled')
+                                                        <div class="fw-bold h5 mb-0 text-muted text-decoration-line-through">
+                                                            ₹{{ number_format($item->total ?? ($item->price ?? 0) * ($item->quantity ?? 1), 2) }}
+                                                        </div>
+                                                        <small class="text-danger">Cancelled</small>
+                                                    @else
+                                                        <div class="fw-bold h5 mb-0 text-primary">
+                                                            ₹{{ number_format($item->total ?? ($item->price ?? 0) * ($item->quantity ?? 1), 2) }}
+                                                        </div>
+                                                        <small class="text-muted">Total</small>
+                                                    @endif
                                                 </td>
                                             </tr>
                                         @endforeach
@@ -971,13 +1010,30 @@
                             </a>
                         @endif
                     @elseif(in_array($order->status, ['pending', 'confirmed']))
-                        <form method="POST" action="{{ route('order.cancel', $order) }}" 
-                              onsubmit="return confirm('Are you sure you want to cancel this order?')">
-                            @csrf
-                            <button type="submit" class="btn btn-outline-danger btn-custom w-100">
-                                <i class="fas fa-times me-2"></i>Cancel Order
-                            </button>
-                        </form>
+                        @php
+                            $cancellableCount = $order->items->filter(fn($i) =>
+                                in_array($i->item_status, ['pending', 'confirmed'])
+                                && ($i->product ? $i->product->is_return : true)
+                            )->count();
+                        @endphp
+                        @if($cancellableCount > 0)
+                            <div class="alert alert-info py-2 small mb-2">
+                                <i class="fas fa-info-circle me-1"></i>
+                                You can cancel individual items above. Or cancel all {{ $cancellableCount }} cancellable item(s) at once below.
+                            </div>
+                            <form method="POST" action="{{ route('order.cancel', $order) }}" 
+                                  onsubmit="return confirm('Cancel all {{ $cancellableCount }} item(s) in this order? This cannot be undone.')">
+                                @csrf
+                                <button type="submit" class="btn btn-outline-danger btn-custom w-100">
+                                    <i class="fas fa-times me-2"></i>Cancel All Items
+                                </button>
+                            </form>
+                        @else
+                            <div class="alert alert-secondary py-2 small mb-0">
+                                <i class="fas fa-info-circle me-1"></i>
+                                No items are eligible for cancellation in this order.
+                            </div>
+                        @endif
                     @endif
                     
                     <!-- Support -->

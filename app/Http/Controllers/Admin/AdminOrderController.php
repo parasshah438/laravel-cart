@@ -226,6 +226,14 @@ class AdminOrderController extends Controller
                 ]
             ]) : $order->notes
         ]);
+
+        // Sync item_status to mirror the order status (skip individually cancelled items)
+        $order->load('items');
+        foreach ($order->items as $item) {
+            if (!in_array($item->item_status, ['cancelled', 'return_requested', 'returned'])) {
+                $item->update(['item_status' => $request->status]);
+            }
+        }
         
         // Handle specific status changes (Professional Flow)
         if ($request->status === 'confirmed' && $order->canCreateShipment()) {
@@ -302,6 +310,14 @@ class AdminOrderController extends Controller
                     'cod_confirmation' => $codConfirmationData
                 ])
             ]);
+
+            // Sync item statuses
+            $order->load('items');
+            foreach ($order->items as $item) {
+                if (!in_array($item->item_status, ['cancelled', 'return_requested', 'returned'])) {
+                    $item->update(['item_status' => 'confirmed']);
+                }
+            }
             
             // Update payment record if exists
             $payment = $order->latestPayment();
@@ -427,6 +443,18 @@ class AdminOrderController extends Controller
                     ]
                 ])
             ]);
+
+            // Sync item statuses to cancelled
+            $order->load('items');
+            foreach ($order->items as $item) {
+                if (!in_array($item->item_status, ['return_requested', 'returned'])) {
+                    $item->update([
+                        'item_status'         => 'cancelled',
+                        'cancellation_reason' => $request->reason,
+                        'cancelled_at'        => now(),
+                    ]);
+                }
+            }
             
             // Cancel related shipments if any
             $order->shipments()->update(['status' => 'cancelled']);

@@ -67,19 +67,35 @@
             padding: 1rem;
             border-bottom: 1px solid #f1f5f9;
             display: flex;
-            align-items: center;
+            align-items: flex-start;
+            gap: 0.75rem;
         }
 
         .order-item:last-child {
             border-bottom: none;
         }
 
+        .order-item.bg-light {
+            background-color: #f8fafc !important;
+        }
+
         .product-image {
-            width: 60px;
-            height: 60px;
+            width: 72px;
+            height: 72px;
             object-fit: cover;
             border-radius: 8px;
-            margin-right: 1rem;
+            flex-shrink: 0;
+        }
+
+        .item-actions .btn {
+            white-space: nowrap;
+        }
+
+        @media (max-width: 576px) {
+            .item-actions {
+                width: 100%;
+                margin-top: 0.5rem;
+            }
         }
 
         .btn-custom {
@@ -267,74 +283,121 @@
                         </div>
                     </div>
 
-                    <!-- Order Items Preview -->
+                    <!-- Order Items — Amazon style: each item has its own status + actions -->
                     <div class="card-body p-0">
-                        @foreach($order->items->take(3) as $item)
-                            <div class="order-item">
+                        @foreach($order->items as $item)
+                            @php $item->setRelation('order', $order); @endphp
+                            <div class="order-item {{ $item->effective_status === 'cancelled' ? 'bg-light opacity-75' : '' }}"
+                                 style="flex-wrap: wrap; gap: 0.5rem;">
+
+                                {{-- Product image --}}
                                 @if($item->product && $item->product->image)
-                                    <img src="{{ asset('storage/' . $item->product->image) }}" 
-                                         alt="{{ $item->product_name }}" 
+                                    <img src="{{ asset('storage/' . $item->product->image) }}"
+                                         alt="{{ $item->product_name }}"
                                          class="product-image">
                                 @else
-                                    <div class="product-image bg-light d-flex align-items-center justify-content-center">
+                                    <div class="product-image bg-light d-flex align-items-center justify-content-center flex-shrink-0">
                                         <i class="fas fa-image text-muted"></i>
                                     </div>
                                 @endif
-                                <div class="flex-grow-1">
-                                    <h6 class="mb-1">{{ $item->product_name }}</h6>
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <small class="text-muted">
-                                            Qty: {{ $item->quantity }} × ₹{{ number_format($item->price, 2) }}
-                                        </small>
-                                        <span class="fw-bold">₹{{ number_format($item->total, 2) }}</span>
+
+                                {{-- Product info + item actions --}}
+                                <div class="flex-grow-1" style="min-width: 0;">
+                                    <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
+                                        {{-- Name & price --}}
+                                        <div>
+                                            <h6 class="mb-1 {{ $item->effective_status === 'cancelled' ? 'text-decoration-line-through text-muted' : '' }}">
+                                                {{ $item->product_name }}
+                                            </h6>
+                                            <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                                                <small class="text-muted">
+                                                    Qty: {{ $item->quantity }} × ₹{{ number_format($item->price, 2) }}
+                                                </small>
+                                                <span class="fw-bold text-primary">
+                                                    ₹{{ number_format($item->total, 2) }}
+                                                </span>
+                                            </div>
+                                            {{-- Item status badge --}}
+                                            <div class="d-flex flex-wrap gap-1">
+                                                <span class="badge {{ $item->item_status_badge_class }}">
+                                                    {{ $item->item_status_label }}
+                                                </span>
+                                                @if($item->product && !$item->product->is_return)
+                                                    <span class="badge bg-secondary">
+                                                        <i class="fas fa-ban me-1"></i>Non-Returnable
+                                                    </span>
+                                                @endif
+                                            </div>
+                                            @if($item->effective_status === 'cancelled' && $item->cancelled_at)
+                                                <small class="text-danger d-block mt-1">
+                                                    <i class="fas fa-times-circle me-1"></i>
+                                                    Cancelled {{ \Carbon\Carbon::parse($item->cancelled_at)->format('M d, Y') }}
+                                                </small>
+                                            @endif
+                                        </div>
+
+                                        {{-- Per-item action buttons --}}
+                                        <div class="d-flex flex-wrap gap-1 align-items-start item-actions">
+                                            {{-- View Details — always shown per item --}}
+                                            <a href="{{ route('order.item.detail', [$order, $item]) }}"
+                                               class="btn btn-outline-primary btn-sm"
+                                               style="font-size: 0.75rem; padding: 0.25rem 0.6rem;">
+                                                <i class="fas fa-eye me-1"></i>View Details
+                                            </a>
+
+                                            @if($item->canBeCancelled())
+                                                <form method="POST"
+                                                      action="{{ route('order.item.cancel', [$order, $item]) }}"
+                                                      onsubmit="return confirm('Cancel \'{{ addslashes($item->product_name) }}\'?')">
+                                                    @csrf
+                                                    <button type="submit"
+                                                            class="btn btn-outline-danger btn-sm"
+                                                            style="font-size: 0.75rem; padding: 0.25rem 0.6rem;">
+                                                        <i class="fas fa-times me-1"></i>Cancel
+                                                    </button>
+                                                </form>
+                                            @endif
+
+                                            @if($item->effective_status === 'delivered' && $item->canBeReturned())
+                                                <a href="{{ route('order.details', $order) }}#return"
+                                                   class="btn btn-outline-warning btn-sm"
+                                                   style="font-size: 0.75rem; padding: 0.25rem 0.6rem;">
+                                                    <i class="fas fa-undo me-1"></i>Return
+                                                </a>
+                                            @endif
+
+                                            @if(in_array($item->effective_status, ['shipped', 'delivered']))
+                                                <a href="{{ route('order.track', $order) }}"
+                                                   class="btn btn-outline-info btn-sm"
+                                                   style="font-size: 0.75rem; padding: 0.25rem 0.6rem;">
+                                                    <i class="fas fa-map-marker-alt me-1"></i>Track
+                                                </a>
+                                            @endif
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         @endforeach
-                        
-                        @if($order->items->count() > 3)
-                            <div class="p-3 text-center border-top">
-                                <small class="text-muted">
-                                    <i class="fas fa-plus-circle me-1"></i>
-                                    {{ $order->items->count() - 3 }} more items
-                                </small>
-                            </div>
-                        @endif
                     </div>
 
-                    <!-- Order Actions -->
-                    <div class="card-footer bg-transparent border-top-0 p-3">
+                    <!-- Order-level footer actions -->
+                    <div class="card-footer bg-transparent p-3">
                         <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center">
                             <div class="d-flex flex-wrap gap-2">
-                                <a href="{{ route('order.details', $order) }}" 
-                                   class="btn btn-outline-primary btn-custom btn-sm">
-                                    <i class="fas fa-eye me-1"></i>View Details
-                                </a>
-                                <a href="{{ route('order.track', $order) }}" 
-                                   class="btn btn-outline-info btn-custom btn-sm">
-                                    <i class="fas fa-map-marker-alt me-1"></i>Track Order
-                                </a>
-                                @if(in_array($order->status, ['pending', 'confirmed']))
-                                    <form method="POST" action="{{ route('order.cancel', $order) }}" 
-                                          class="d-inline"
-                                          onsubmit="return confirm('Are you sure you want to cancel this order?')">
-                                        @csrf
-                                        <button type="submit" class="btn btn-outline-danger btn-custom btn-sm">
-                                            <i class="fas fa-times me-1"></i>Cancel
-                                        </button>
-                                    </form>
-                                @endif
                                 @if($order->status === 'delivered')
                                     <form method="POST" action="{{ route('order.reorder', $order) }}" class="d-inline">
                                         @csrf
                                         <button type="submit" class="btn btn-success btn-custom btn-sm">
-                                            <i class="fas fa-redo me-1"></i>Reorder
+                                            <i class="fas fa-redo me-1"></i>Reorder All
                                         </button>
                                     </form>
                                 @endif
+                                <a href="{{ route('order.invoice', $order) }}"
+                                   class="btn btn-outline-secondary btn-custom btn-sm" target="_blank">
+                                    <i class="fas fa-file-invoice me-1"></i>Invoice
+                                </a>
                             </div>
-                            
-                            <!-- Delivery Info -->
+
                             @if($order->address)
                                 <div class="text-end">
                                     <small class="text-muted">

@@ -532,26 +532,92 @@
                     </h5>
                     
                     @foreach($order->items as $item)
-                        <div class="d-flex align-items-center p-3 border-bottom">
+                            @php $item->setRelation('order', $order); @endphp
+                        <div class="d-flex align-items-start p-3 border-bottom gap-3
+                                    {{ $item->effective_status === 'cancelled' ? 'bg-light opacity-75' : '' }}">
+                            {{-- Product image --}}
                             @if($item->product && $item->product->image)
-                                <img src="{{ asset('storage/' . $item->product->image) }}" 
-                                     alt="{{ $item->product_name }}" 
-                                     class="rounded"
-                                     style="width: 80px; height: 80px; object-fit: cover; margin-right: 1rem;">
+                                <img src="{{ asset('storage/' . $item->product->image) }}"
+                                     alt="{{ $item->product_name }}"
+                                     class="rounded flex-shrink-0"
+                                     style="width: 80px; height: 80px; object-fit: cover;">
                             @else
-                                <div class="bg-light rounded d-flex align-items-center justify-content-center me-3"
+                                <div class="bg-light rounded d-flex align-items-center justify-content-center flex-shrink-0"
                                      style="width: 80px; height: 80px;">
                                     <i class="fas fa-image text-muted"></i>
                                 </div>
                             @endif
-                            
-                            <div class="flex-grow-1">
-                                <h6 class="mb-1">{{ $item->product_name }}</h6>
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <span class="text-muted">
-                                        Qty: {{ $item->quantity }} × ₹{{ number_format($item->price, 2) }}
-                                    </span>
-                                    <span class="fw-bold">₹{{ number_format($item->total, 2) }}</span>
+
+                            {{-- Product info + per-item actions --}}
+                            <div class="flex-grow-1" style="min-width: 0;">
+                                <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
+
+                                    {{-- Left: name, price, badges --}}
+                                    <div>
+                                        <h6 class="mb-1 {{ $item->effective_status === 'cancelled' ? 'text-decoration-line-through text-muted' : '' }}">
+                                            {{ $item->product_name }}
+                                        </h6>
+                                        <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                                            <span class="text-muted small">
+                                                Qty: {{ $item->quantity }} × ₹{{ number_format($item->price, 2) }}
+                                            </span>
+                                            <span class="fw-bold text-primary">
+                                                ₹{{ number_format($item->total, 2) }}
+                                            </span>
+                                        </div>
+                                        {{-- Status badge + non-returnable tag --}}
+                                        <div class="d-flex flex-wrap gap-1">
+                                            <span class="badge {{ $item->item_status_badge_class }}">
+                                                {{ $item->item_status_label }}
+                                            </span>
+                                            @if($item->product && !$item->product->is_return)
+                                                <span class="badge bg-secondary">
+                                                    <i class="fas fa-ban me-1"></i>Non-Returnable
+                                                </span>
+                                            @endif
+                                        </div>
+                                        @if($item->effective_status === 'cancelled' && $item->cancelled_at)
+                                            <small class="text-danger d-block mt-1">
+                                                <i class="fas fa-times-circle me-1"></i>
+                                                Cancelled {{ \Carbon\Carbon::parse($item->cancelled_at)->format('M d, Y') }}
+                                            </small>
+                                        @endif
+                                    </div>
+
+                                    {{-- Right: per-item action buttons --}}
+                                    <div class="d-flex flex-wrap gap-1 align-items-start">
+                                        {{-- View Details — always per item --}}
+                                        <a href="{{ route('order.item.detail', [$order, $item]) }}"
+                                           class="btn btn-outline-primary btn-sm">
+                                            <i class="fas fa-eye me-1"></i>View Details
+                                        </a>
+
+                                        @if($item->canBeCancelled())
+                                            <form method="POST"
+                                                  action="{{ route('order.item.cancel', [$order, $item]) }}"
+                                                  onsubmit="return confirm('Cancel \'{{ addslashes($item->product_name) }}\'?')">
+                                                @csrf
+                                                <button type="submit" class="btn btn-outline-danger btn-sm">
+                                                    <i class="fas fa-times me-1"></i>Cancel
+                                                </button>
+                                            </form>
+                                        @endif
+
+                                        @if($item->effective_status === 'delivered' && $item->canBeReturned())
+                                            <a href="{{ route('order.details', $order) }}#return"
+                                               class="btn btn-outline-warning btn-sm">
+                                                <i class="fas fa-undo me-1"></i>Return
+                                            </a>
+                                        @endif
+
+                                        @if(in_array($item->effective_status, ['shipped', 'delivered']))
+                                            <a href="{{ route('order.item.detail', [$order, $item]) }}"
+                                               class="btn btn-info btn-sm text-white">
+                                                <i class="fas fa-truck me-1"></i>Track Item
+                                            </a>
+                                        @endif
+                                    </div>
+
                                 </div>
                             </div>
                         </div>
@@ -560,49 +626,55 @@
 
                 <!-- Order Actions -->
                 <div class="animate-fade-in">
-                    <!-- Primary Actions Row -->
+                    <!-- Document & navigation actions -->
                     <div class="d-flex gap-2 mt-3 flex-wrap">
                         <a href="{{ route('order.details', $order) }}" class="btn btn-outline-primary btn-custom">
                             <i class="fas fa-eye me-1"></i>View Full Details
                         </a>
-                        
                         <a href="{{ route('order.invoice', $order) }}" class="btn btn-outline-info btn-custom" target="_blank">
                             <i class="fas fa-file-invoice me-1"></i>Invoice
                         </a>
-                        
                         <a href="{{ route('order.receipt', $order) }}" class="btn btn-outline-info btn-custom" target="_blank">
                             <i class="fas fa-receipt me-1"></i>Receipt
                         </a>
                     </div>
-                    
-                    <!-- Order Management Actions -->
-                    <div class="d-flex gap-2 mt-2 flex-wrap">
-                        @if($order->status === 'delivered')
+
+                    <!-- Order-level actions (Reorder / Return whole order) -->
+                    @if($order->status === 'delivered')
+                        <div class="d-flex gap-2 mt-2 flex-wrap">
                             <form method="POST" action="{{ route('order.reorder', $order) }}" class="d-inline">
                                 @csrf
                                 <button type="submit" class="btn btn-success btn-custom">
                                     <i class="fas fa-redo me-1"></i>Reorder
                                 </button>
                             </form>
-                            
                             <button type="button" class="btn btn-outline-warning btn-custom" data-bs-toggle="modal" data-bs-target="#returnModal">
-                                <i class="fas fa-undo me-1"></i>Return
+                                <i class="fas fa-undo me-1"></i>Return Order
                             </button>
-                            
                             <button type="button" class="btn btn-outline-secondary btn-custom" data-bs-toggle="modal" data-bs-target="#exchangeModal">
                                 <i class="fas fa-exchange-alt me-1"></i>Exchange
                             </button>
-                        @elseif(in_array($order->status, ['pending', 'confirmed']))
-                            <form method="POST" action="{{ route('order.cancel', $order) }}" 
-                                  class="d-inline"
-                                  onsubmit="return confirm('Are you sure you want to cancel this order?')">
-                                @csrf
-                                <button type="submit" class="btn btn-outline-danger btn-custom">
-                                    <i class="fas fa-times me-1"></i>Cancel Order
-                                </button>
-                            </form>
+                        </div>
+                    @endif
+
+                    {{-- Per-item cancel notice when order is still active --}}
+                    @if(in_array($order->status, ['pending', 'confirmed']))
+                        @php
+                            $cancellableCount = $order->items->filter(fn($i) =>
+                                in_array($i->item_status, ['pending', 'confirmed'])
+                                && ($i->product ? $i->product->is_return : true)
+                            )->count();
+                        @endphp
+                        @if($cancellableCount > 0)
+                            <div class="alert alert-light border mt-3 py-2 d-flex align-items-center gap-2">
+                                <i class="fas fa-info-circle text-primary"></i>
+                                <span class="small">
+                                    <strong>{{ $cancellableCount }} item(s)</strong> can be cancelled individually above,
+                                    or <a href="{{ route('order.details', $order) }}" class="fw-semibold">go to order details</a> to cancel all at once.
+                                </span>
+                            </div>
                         @endif
-                    </div>
+                    @endif
                 </div>
 
                 <!-- Admin Status Update (for testing) -->

@@ -99,6 +99,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/order/{order}', [\App\Http\Controllers\CheckoutController::class, 'orderDetails'])->name('order.details');
     Route::get('/order/{order}/track', [\App\Http\Controllers\CheckoutController::class, 'trackOrder'])->name('order.track');
     Route::post('/order/{order}/cancel', [\App\Http\Controllers\CheckoutController::class, 'cancelOrder'])->name('order.cancel');
+    Route::get('/order/{order}/item/{item}', [\App\Http\Controllers\CheckoutController::class, 'orderItemDetail'])->name('order.item.detail');
+    Route::post('/order/{order}/item/{item}/cancel', [\App\Http\Controllers\CheckoutController::class, 'cancelOrderItem'])->name('order.item.cancel');
     Route::post('/order/{order}/reorder', [\App\Http\Controllers\CheckoutController::class, 'reorder'])->name('order.reorder');
     
     //Advanced Order Management Features
@@ -462,6 +464,21 @@ Route::prefix('webhook')->name('webhook.')->group(function () {
     Route::post('/shiprocket/delivery', [\App\Http\Controllers\ShipRocketWebhookController::class, 'handleDelivery'])->name('shiprocket.delivery');
     Route::post('/shiprocket/return', [\App\Http\Controllers\ShipRocketWebhookController::class, 'handleReturn'])->name('shiprocket.return');
     Route::post('/shiprocket/exception', [\App\Http\Controllers\ShipRocketWebhookController::class, 'handleException'])->name('shiprocket.exception');
+});
+
+// ================================================================================================
+// 🤖 CHATBOT AI ROUTES
+// ================================================================================================
+Route::prefix('chatbot-ai')->name('chatbot.')->group(function() {
+    Route::post('/intelligent-chat', [App\Http\Controllers\ChatbotController::class, 'intelligentChat'])->name('intelligent-chat');
+    Route::post('/product-consultation', [App\Http\Controllers\ChatbotController::class, 'productConsultation'])->name('product-consultation');
+    Route::get('/shopping-assistant', [App\Http\Controllers\ChatbotController::class, 'shoppingAssistant'])->name('shopping-assistant');
+    
+    // Additional authenticated routes
+    Route::middleware('auth')->group(function() {
+        Route::get('/history/{sessionId}', [App\Http\Controllers\ChatbotController::class, 'getChatHistory'])->name('history');
+        Route::post('/end-session/{sessionId}', [App\Http\Controllers\ChatbotController::class, 'endSession'])->name('end-session');
+    });
 });
 
 require __DIR__.'/admin.php';

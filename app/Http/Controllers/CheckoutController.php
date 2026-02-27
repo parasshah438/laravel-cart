@@ -251,11 +251,12 @@ class CheckoutController extends Controller
         // Create order items with cart prices (preserving cart-time pricing)
         foreach ($cartItems as $item) {
             $order->items()->create([
-                'product_id' => $item->product->id,
-                'product_name' => $item->product->name,
-                'price' => $item->price_at_time, // Use cart-time price
-                'quantity' => $item->quantity,
-                'total' => $item->price_at_time * $item->quantity,
+                'product_id'  => $item->product->id,
+                'product_name'=> $item->product->name,
+                'price'       => $item->price_at_time, // Use cart-time price
+                'quantity'    => $item->quantity,
+                'total'       => $item->price_at_time * $item->quantity,
+                'item_status' => 'pending',
             ]);
         }
 
@@ -287,6 +288,25 @@ class CheckoutController extends Controller
     public function orderDetails($orderId)
     {
         $order = auth()->user()->orders()->with(['items.product', 'address'])->findOrFail($orderId);
+
+        // Backward-compatibility: sync item_status from order status for existing records
+        // Only sync items that are still at the default 'pending' but the order has progressed
+        $syncMap = [
+            'confirmed'  => 'confirmed',
+            'shipped'    => 'shipped',
+            'delivered'  => 'delivered',
+            'cancelled'  => 'cancelled',
+        ];
+        if (isset($syncMap[$order->status])) {
+            foreach ($order->items as $item) {
+                if ($item->item_status === 'pending') {
+                    $item->update(['item_status' => $syncMap[$order->status]]);
+                }
+            }
+            // Refresh items after sync
+            $order->load('items.product');
+        }
+
         return view('checkout.order-details', compact('order'));
     }
 
@@ -342,6 +362,22 @@ class CheckoutController extends Controller
         
         // Load relationships
         $order->load(['items.product', 'address', 'latestShipment.trackingEvents']);
+
+        // Backward-compatibility: sync item_status for existing orders
+        $syncMap = [
+            'confirmed' => 'confirmed',
+            'shipped'   => 'shipped',
+            'delivered' => 'delivered',
+            'cancelled' => 'cancelled',
+        ];
+        if (isset($syncMap[$order->status])) {
+            foreach ($order->items as $item) {
+                if ($item->item_status === 'pending') {
+                    $item->update(['item_status' => $syncMap[$order->status]]);
+                }
+            }
+            $order->load('items.product');
+        }
         
         // Get tracking timeline from the model
         $timeline = $order->getTrackingSteps();
@@ -355,7 +391,7 @@ class CheckoutController extends Controller
     }
 
     /**
-     * Cancel an order (if cancellable)
+     * Cancel an order (if cancellable) — cancels ALL remaining cancellable items
      */
     public function cancelOrder(Order $order)
     {
@@ -363,15 +399,108 @@ class CheckoutController extends Controller
         if (auth()->check() && $order->user_id !== auth()->id()) {
             abort(403, 'Unauthorized access to this order.');
         }
-        
+
         // Check if order can be cancelled
         if (in_array($order->status, ['delivered', 'cancelled', 'shipped'])) {
             return back()->with('error', 'Order cannot be cancelled at this stage.');
         }
-        
+
+        // Cancel all individual items that are still cancellable
+        $order->load('items.product');
+        foreach ($order->items as $item) {
+            if (in_array($item->item_status, ['pending', 'confirmed'])) {
+                $item->update([
+                    'item_status'         => 'cancelled',
+                    'cancellation_reason' => 'Order cancelled by customer',
+                    'cancelled_at'        => now(),
+                ]);
+            }
+        }
+
         $order->update(['status' => 'cancelled']);
-        
+
         return back()->with('success', 'Order has been cancelled successfully.');
+    }
+
+    /**
+     * Cancel a single order item (real-world per-item cancel like Amazon/Flipkart)
+     */
+    public function cancelOrderItem(Order $order, \App\Models\OrderItem $item)
+    {
+        // Security: order must belong to this user
+        if (auth()->check() && $order->user_id !== auth()->id()) {
+            abort(403, 'Unauthorized access to this order.');
+        }
+
+        // Item must belong to this order
+        if ($item->order_id !== $order->id) {
+            abort(403, 'Item does not belong to this order.');
+        }
+
+        // Check item-level cancellability using effective status
+        // (handles backward-compat orders where item_status may still be 'pending')
+        $item->setRelation('order', $order);
+        $item->load('product');
+
+        if (!in_array($item->effective_status, ['pending', 'confirmed'])) {
+            return back()->with('error', 'This item cannot be cancelled at this stage.');
+        }
+
+        // Check product allows cancellation
+        if ($item->product && !$item->product->is_return) {
+            return back()->with('error', 'This product is not eligible for cancellation.');
+        }
+
+        // Cancel the item
+        $item->update([
+            'item_status'         => 'cancelled',
+            'cancellation_reason' => 'Cancelled by customer',
+            'cancelled_at'        => now(),
+        ]);
+
+        // If ALL items are now cancelled → mark the whole order cancelled too
+        $order->load('items');
+        $allCancelled = $order->items->every(fn($i) => $i->item_status === 'cancelled');
+        if ($allCancelled) {
+            $order->update(['status' => 'cancelled']);
+            return back()->with('success', 'Item cancelled. All items in this order are now cancelled, so the order has been cancelled.');
+        }
+
+        return back()->with('success', 'Item "' . $item->product_name . '" has been cancelled successfully.');
+    }
+
+    /**
+     * Show per-item detail page (Amazon-style: one product's full info)
+     */
+    public function orderItemDetail(Order $order, \App\Models\OrderItem $item)
+    {
+        // Security: order must belong to this user
+        if (auth()->check() && $order->user_id !== auth()->id()) {
+            abort(403, 'Unauthorized access to this order.');
+        }
+
+        // Item must belong to this order
+        if ($item->order_id !== $order->id) {
+            abort(403, 'Item does not belong to this order.');
+        }
+
+        // Load all needed relationships
+        $order->load(['address.country', 'address.state', 'address.city', 'latestShipment.trackingEvents']);
+        $item->load('product');
+        $item->setRelation('order', $order);
+
+        // Backward-compat: sync item status if still pending but order has progressed
+        $syncMap = ['confirmed'=>'confirmed','shipped'=>'shipped','delivered'=>'delivered','cancelled'=>'cancelled'];
+        if (isset($syncMap[$order->status]) && $item->item_status === 'pending') {
+            $item->update(['item_status' => $syncMap[$order->status]]);
+            $item->refresh();
+            $item->setRelation('order', $order);
+        }
+
+        $timeline = $order->getTrackingSteps();
+        if (!is_array($timeline)) { $timeline = []; }
+
+        return view('orders.item-detail', compact('order', 'item', 'timeline'));
     }
 
     /**
@@ -410,10 +539,27 @@ class CheckoutController extends Controller
             'status' => 'required|in:pending,confirmed,shipped,delivered,cancelled'
         ]);
 
-        $order = Order::findOrFail($orderId);
-        $order->update(['status' => $request->status]);
+        $order = Order::with('items')->findOrFail($orderId);
+        $newStatus = $request->status;
 
-        return back()->with('success', 'Order status updated successfully to ' . ucfirst($request->status));
+        $order->update(['status' => $newStatus]);
+
+        // Sync item_status for non-cancelled items to match the new order status
+        $itemStatusMap = [
+            'pending'   => 'pending',
+            'confirmed' => 'confirmed',
+            'shipped'   => 'shipped',
+            'delivered' => 'delivered',
+            'cancelled' => 'cancelled',
+        ];
+        foreach ($order->items as $item) {
+            // Don't overwrite items that were individually cancelled
+            if ($item->item_status !== 'cancelled' && $item->item_status !== 'return_requested' && $item->item_status !== 'returned') {
+                $item->update(['item_status' => $itemStatusMap[$newStatus] ?? $newStatus]);
+            }
+        }
+
+        return back()->with('success', 'Order status updated successfully to ' . ucfirst($newStatus));
     }
 
     /**

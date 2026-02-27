@@ -28,3 +28,8 @@ Schedule::call(function () {
         'status' => 'running'
     ]);
 })->hourly();
+
+// Run queue work every minute
+Schedule::command('queue:work --stop-when-empty')
+    ->everyMinute()
+    ->withoutOverlapping();

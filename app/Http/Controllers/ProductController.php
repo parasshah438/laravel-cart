@@ -598,7 +598,7 @@ class ProductController extends Controller
         // Get wishlist product IDs if user is authenticated
         $wishlistProductIds = collect();
         if (auth()->check()) {
-            $wishlistProductIds = auth()->user()->wishlists()->pluck('product_id');
+            $wishlistProductIds = auth()->user()->wishlist()->pluck('product_id');
         }
         
         // Render the HTML using the existing partial

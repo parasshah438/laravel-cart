@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
 use Illuminate\View\View;
 
+use App\Jobs\SendWelcomeMail;
+
 class RegisteredUserController extends Controller
 {
     /**
@@ -44,6 +46,8 @@ class RegisteredUserController extends Controller
         ]);
 
         event(new Registered($user));
+        // Dispatch welcome mail job
+        SendWelcomeMail::dispatch($user);
         Auth::login($user);
         return redirect(route('dashboard', absolute: false));
     }
