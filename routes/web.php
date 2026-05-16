@@ -112,9 +112,6 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/order/{order}/invoice', [\App\Http\Controllers\CheckoutController::class, 'downloadInvoice'])->name('order.invoice');
     Route::get('/order/{order}/receipt', [\App\Http\Controllers\CheckoutController::class, 'downloadReceipt'])->name('order.receipt');
 
-    //Admin order status updates (temporary for testing)
-    Route::post('/admin/order/{order}/update-status', [\App\Http\Controllers\CheckoutController::class, 'updateOrderStatus'])->name('admin.order.updateStatus');
-
     //Profile
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
@@ -157,7 +154,6 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/checkout/payment', [CheckoutController::class, 'payment'])->name('checkout.payment');
     Route::post('/checkout/address/select', [CheckoutController::class, 'selectAddress'])->name('checkout.address.select');
     Route::post('/checkout/address/save', [AddressController::class, 'store'])->name('checkout.address.save');
-    Route::get('/checkout/payment', [CheckoutController::class, 'payment'])->name('checkout.payment');
 
         //Place Order
         Route::post('/checkout/place-order', [CheckoutController::class, 'placeOrder'])->name('checkout.placeOrder');
@@ -211,28 +207,6 @@ Route::prefix('compare')->name('compare.')->group(function() {
     Route::delete('/clear', [CompareController::class, 'clear'])->name('clear');
     Route::get('/count', [CompareController::class, 'count'])->name('count');
 });
-
-// ================================================================================================
-// 🔧 ADMIN ROUTES (Amazon-Style Review Management)
-// ================================================================================================
-Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () {
-    // Review Management
-    Route::get('/reviews', [\App\Http\Controllers\Admin\AdminReviewController::class, 'index'])->name('reviews.index');
-    Route::get('/reviews/{review}', [\App\Http\Controllers\Admin\AdminReviewController::class, 'show'])->name('reviews.show');
-    Route::post('/reviews/{review}/approve', [\App\Http\Controllers\Admin\AdminReviewController::class, 'approve'])->name('reviews.approve');
-    Route::post('/reviews/{review}/reject', [\App\Http\Controllers\Admin\AdminReviewController::class, 'reject'])->name('reviews.reject');
-    Route::get('/reviews/analytics/data', [\App\Http\Controllers\Admin\AdminReviewController::class, 'analytics'])->name('reviews.analytics');
-    
-    // Return Management
-    Route::get('/returns', [\App\Http\Controllers\ReturnManagementController::class, 'index'])->name('returns.index');
-    Route::get('/returns/{order}', [\App\Http\Controllers\ReturnManagementController::class, 'show'])->name('returns.show');
-    Route::post('/returns/{order}/update-status', [\App\Http\Controllers\ReturnManagementController::class, 'updateStatus'])->name('returns.update-status');
-    Route::post('/returns/{order}/process-refund', [\App\Http\Controllers\ReturnManagementController::class, 'processRefund'])->name('returns.process-refund');
-    Route::post('/returns/{order}/update-refund-status', [\App\Http\Controllers\ReturnManagementController::class, 'updateRefundStatus'])->name('returns.update-refund-status');
-});
-
-// Include test routes for Amazon review system (remove in production)
-include __DIR__ . '/test-reviews.php';
 
 //WISHLIST SHARING (Public Routes)
 Route::get('/shared-wishlist/{token}', [WishlistShareController::class, 'view'])->name('wishlist.shared.view');

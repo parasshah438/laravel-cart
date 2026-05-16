@@ -16,15 +16,17 @@ class AdminMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // Check if user is authenticated
-        if (!Auth::check()) {
-            return redirect()->route('login')->with('error', 'Please login to access admin area.');
+        // Check if the admin guard is authenticated
+        if (!Auth::guard('admin')->check()) {
+            return redirect()->route('admin.login')->with('error', 'Please login to access the admin area.');
         }
 
-        // Check if user has admin or agent role
-        $user = Auth::user();
-        if (!in_array($user->role, ['admin', 'agent'])) {
-            abort(403, 'Access denied. Admin or Agent privileges required.');
+        // Check if the admin account is active
+        $admin = Auth::guard('admin')->user();
+        if (!$admin->is_active) {
+            Auth::guard('admin')->logout();
+            $request->session()->invalidate();
+            return redirect()->route('admin.login')->with('error', 'Your admin account has been deactivated.');
         }
 
         return $next($request);

@@ -11,7 +11,20 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Register admin middleware
+        // Exclude external webhook routes from CSRF verification
+        $middleware->validateCsrfTokens(except: [
+            'webhooks/shiprocket',
+            'webhooks/razorpay',
+            'webhook/razorpay',
+            'webhook/stripe',
+            'webhook/shiprocket',
+            'webhook/shiprocket/pickup',
+            'webhook/shiprocket/delivery',
+            'webhook/shiprocket/return',
+            'webhook/shiprocket/exception',
+        ]);
+
+        // Middleware aliases
         $middleware->alias([
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
         ]);

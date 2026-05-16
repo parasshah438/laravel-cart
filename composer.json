@@ -13,6 +13,7 @@
         "propaganistas/laravel-disposable-email": "^2.4",
         "razorpay/razorpay": "^2.9",
         "spatie/image-optimizer": "^1.8",
+        "spatie/laravel-permission": "^7.4",
         "stripe/stripe-php": "^18.0"
     },
     "require-dev": {

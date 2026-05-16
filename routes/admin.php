@@ -3,22 +3,49 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Admin\AdminSupportController;
 use App\Http\Controllers\Admin\PaymentController;
+use App\Http\Controllers\Admin\Auth\LoginController;
+use App\Http\Controllers\Admin\Auth\ForgotPasswordController;
+use App\Http\Controllers\Admin\Auth\ResetPasswordController;
 
-/*
-|--------------------------------------------------------------------------
-| Admin Routes
-|--------------------------------------------------------------------------
-|
-| Here is where you can register admin routes for your application. These
-| routes are loaded by the RouteServiceProvider within a group which
-| contains the "web" middleware group and admin authentication.
-|
-*/
+// ================================================================================================
+// 🔑 ADMIN AUTH ROUTES
+// ================================================================================================
+
+// /admin root — smart redirect based on auth state
+Route::get('/admin', function () {
+    return auth('admin')->check()
+        ? redirect()->route('admin.dashboard')
+        : redirect()->route('admin.login');
+});
+
+// Guest-only routes (unauthenticated admins only)
+Route::prefix('admin')->name('admin.')->middleware('guest:admin')->group(function () {
+    Route::get('/login',            [LoginController::class, 'showLoginForm'])->name('login');
+    Route::post('/login',           [LoginController::class, 'login'])->name('login.post');
+
+    Route::get('/forgot-password',  [ForgotPasswordController::class, 'showForm'])->name('password.request');
+    Route::post('/forgot-password', [ForgotPasswordController::class, 'sendLink'])->name('password.email');
+
+    Route::get('/reset-password/{token}', [ResetPasswordController::class, 'showForm'])->name('password.reset');
+    Route::post('/reset-password',        [ResetPasswordController::class, 'reset'])->name('password.update');
+});
+
+// Logout — requires an authenticated admin session
+Route::post('/admin/logout', [LoginController::class, 'logout'])
+    ->name('admin.logout')
+    ->middleware('auth:admin');
+
+
+
+
+
+
+
 
 // ================================================================================================
 // 💳 ADMIN PAYMENT MANAGEMENT SYSTEM
 // ================================================================================================
-Route::prefix('admin/payments')->name('admin.payments.')->middleware(['auth'])->group(function () {
+Route::prefix('admin/payments')->name('admin.payments.')->middleware(['auth:admin'])->group(function () {
     
     // Payment Analytics Dashboard
     Route::get('/dashboard', [PaymentController::class, 'dashboard'])->name('dashboard');
@@ -35,7 +62,7 @@ Route::prefix('admin/payments')->name('admin.payments.')->middleware(['auth'])->
 // ================================================================================================
 // 🛠️ ADMIN SUPPORT SYSTEM (Staff/Agent Management)
 // ================================================================================================
-Route::prefix('admin/support')->name('admin.support.')->middleware(['auth'])->group(function () {
+Route::prefix('admin/support')->name('admin.support.')->middleware(['auth:admin'])->group(function () {
     
     // Admin Support Dashboard
     Route::get('/', [AdminSupportController::class, 'dashboard'])->name('dashboard');
@@ -87,12 +114,10 @@ Route::prefix('admin/support')->name('admin.support.')->middleware(['auth'])->gr
     // ================================================================================================
     // 🔐 ADMIN AUTHENTICATION & PERMISSIONS
     // ================================================================================================
-    Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () {
+    Route::prefix('admin')->name('admin.')->middleware(['auth:admin'])->group(function () {
         
         // Admin Dashboard
-        Route::get('/', function () {
-            return view('admin.dashboard');
-        })->name('dashboard');
+        Route::get('/', [\App\Http\Controllers\Admin\AdminDashboardController::class, 'index'])->name('dashboard');
         
         // ================================================================================================
         // 📦 ORDER MANAGEMENT SYSTEM
@@ -130,11 +155,24 @@ Route::prefix('admin/support')->name('admin.support.')->middleware(['auth'])->gr
             Route::get('/', [\App\Http\Controllers\ReturnManagementController::class, 'index'])->name('index');
             Route::get('/{order}', [\App\Http\Controllers\ReturnManagementController::class, 'show'])->name('show');
             Route::post('/{order}/update-status', [\App\Http\Controllers\ReturnManagementController::class, 'updateStatus'])->name('update-status');
+            Route::post('/{order}/process-refund', [\App\Http\Controllers\ReturnManagementController::class, 'processRefund'])->name('process-refund');
+            Route::post('/{order}/update-refund-status', [\App\Http\Controllers\ReturnManagementController::class, 'updateRefundStatus'])->name('update-refund-status');
         });
 
         // User Management (for role assignments)
         Route::get('/users', [AdminSupportController::class, 'users'])->name('users');
         Route::post('/users/{user}/role', [AdminSupportController::class, 'updateUserRole'])->name('users.role');
+
+        // ================================================================================================
+        // 📝 REVIEW MANAGEMENT
+        // ================================================================================================
+        Route::prefix('reviews')->name('reviews.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Admin\AdminReviewController::class, 'index'])->name('index');
+            Route::get('/{review}', [\App\Http\Controllers\Admin\AdminReviewController::class, 'show'])->name('show');
+            Route::post('/{review}/approve', [\App\Http\Controllers\Admin\AdminReviewController::class, 'approve'])->name('approve');
+            Route::post('/{review}/reject', [\App\Http\Controllers\Admin\AdminReviewController::class, 'reject'])->name('reject');
+            Route::get('/analytics/data', [\App\Http\Controllers\Admin\AdminReviewController::class, 'analytics'])->name('analytics');
+        });
     
     // ================================================================================================
     // 📦 PRODUCT MANAGEMENT WITH IMAGE OPTIMIZATION
@@ -211,7 +249,7 @@ Route::prefix('admin/support')->name('admin.support.')->middleware(['auth'])->gr
 // ================================================================================================
 // 🛍️ ADMIN SALES MANAGEMENT SYSTEM
 // ================================================================================================
-Route::prefix('admin/sales')->name('admin.sales.')->middleware(['auth'])->group(function () {
+Route::prefix('admin/sales')->name('admin.sales.')->middleware(['auth:admin'])->group(function () {
     
     // ================================================================================================
     // 🔥 SALE EVENTS MANAGEMENT
