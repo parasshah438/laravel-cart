@@ -19,6 +19,7 @@ Route::post('/webhooks/razorpay', [App\Http\Controllers\WebhookController::class
     ->name('webhooks.razorpay');
 
 Route::get('/category/{slug}', [FrontendController::class, 'categoryProducts'])->name('category.products');
+Route::get('/category/{slug}/search-suggestions', [FrontendController::class, 'categorySearchSuggestions'])->name('category.search-suggestions');
 Route::get('/search-suggestions', [FrontendController::class, 'searchSuggestions'])->name('search.suggestions');
 Route::get('/dashboard', function () {
     return view('dashboard');
