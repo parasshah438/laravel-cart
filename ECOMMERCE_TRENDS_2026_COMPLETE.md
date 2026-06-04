@@ -209,7 +209,7 @@ Route::prefix('chatbot-ai')->name('chatbot.')->group(function() {
 });
 ```
 
-**Business Impact**: +40% customer satisfaction, +25% order completion
+**Business Impact**: +40% customer satisfaction, +25% order compl9etion
 
 #### **3. Augmented Reality (AR) Shopping**
 ```php

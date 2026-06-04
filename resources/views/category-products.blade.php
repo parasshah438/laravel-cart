@@ -32,16 +32,36 @@
 
         /* Filter sidebar */
         .filter-card { border: none; box-shadow: 0 2px 4px rgba(0,0,0,.1); border-radius: 12px; }
-        .filter-section { border-bottom: 1px solid #eee; padding: 1rem 0; }
+        .filter-section { border-bottom: 1px solid #eee; }
         .filter-section:last-child { border-bottom: none; }
-        .filter-title { font-weight: 600; color: #333; font-size: .9rem; margin-bottom: .75rem; }
+        .filter-title {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 16px; margin: 0; cursor: pointer; user-select: none;
+            font-weight: 600; color: #333; font-size: .9rem;
+            transition: background .15s;
+        }
+        .filter-title:hover { background: #f9fafb; }
+        .filter-title-inner { display: flex; align-items: center; }
+        .filter-chevron { font-size: .68rem; color: #9ca3af; transition: transform .25s ease; flex-shrink: 0; }
+        .filter-section.fs-collapsed .filter-chevron { transform: rotate(-90deg); }
+        .filter-body {
+            padding: 0 16px 14px; overflow: hidden;
+            max-height: 800px; opacity: 1;
+            transition: max-height .3s ease, opacity .2s ease, padding .2s ease;
+        }
+        .filter-section.fs-collapsed .filter-body { max-height: 0; opacity: 0; padding-top: 0; padding-bottom: 0; }
+        /* Highlight filter-title row when section has an active filter */
+        .filter-section.has-active-filter > .filter-title { color: #667eea; }
+        .filter-section.has-active-filter > .filter-title .filter-chevron { color: #667eea; }
 
         /* Search suggestions */
         .search-autocomplete-container { position: relative; }
         .search-suggestions-dropdown {
-            position: absolute; top: 100%; left: 0; right: 0; z-index: 1000;
-            background: white; border: 1px solid #dee2e6; border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,.15); max-height: 300px; overflow-y: auto;
+            position: fixed; z-index: 9999;
+            top: -9999px; left: -9999px; /* parked off-screen until JS positions it */
+            background: white; border: 1px solid #dee2e6; border-top: none;
+            box-shadow: 0 6px 16px rgba(0,0,0,.18); max-height: 300px; overflow-y: auto;
+            transition: none; /* no animation that could cause visible jump */
         }
         .suggestion-item {
             display: flex; align-items: center; padding: 10px 15px; cursor: pointer;
@@ -52,8 +72,14 @@
         .suggestion-icon { width: 20px; color: #6c757d; margin-right: 10px; font-size: .85rem; }
         .suggestion-text { flex: 1; font-size: .9rem; }
         .suggestion-text strong { font-weight: 700; color: #111; }
+        .suggestion-count { font-size: .72rem; color: #9ca3af; white-space: nowrap; margin-left: 6px; }
         .suggestion-type { font-size: .75rem; color: #adb5bd; text-transform: capitalize; }
         .suggestions-loading, .no-suggestions { padding: 12px 15px; color: #6c757d; font-size: .85rem; text-align: center; }
+        .suggestion-group-header {
+            padding: 5px 15px 4px; font-size: .68rem; font-weight: 700;
+            letter-spacing: .07em; text-transform: uppercase; color: #9ca3af;
+            background: #f9fafb; border-top: 1px solid #f0f0f0; border-bottom: 1px solid #f0f0f0;
+        }
         .suggestion-dym { background: #fffbeb; border-top: 1px dashed #fcd34d !important; }
         .suggestion-dym:hover, .suggestion-dym.highlighted { background: #fef3c7; }
         .suggestion-dym .suggestion-icon { color: #f59e0b; }
@@ -70,6 +96,19 @@
         .recent-search-item .rs-text { flex: 1; font-size: .88rem; color: #374151; }
         .recent-search-item .rs-remove { background: none; border: none; color: #d1d5db; padding: 0 0 0 8px; font-size: .8rem; cursor: pointer; line-height: 1; }
         .recent-search-item .rs-remove:hover { color: #6b7280; }
+        /* Trending searches in dropdown */
+        .trending-searches-header {
+            display: flex; align-items: center;
+            padding: 8px 15px 4px; font-size: .72rem; color: #9ca3af; text-transform: uppercase; letter-spacing: .04em;
+        }
+        .trending-searches-header i { color: #f59e0b; margin-right: 5px; }
+        .trending-search-dropdown-item {
+            display: flex; align-items: center; padding: 8px 15px; cursor: pointer;
+            border-bottom: 1px solid #f0f0f0; transition: background .15s;
+        }
+        .trending-search-dropdown-item:hover { background: #f8f9fa; }
+        .trending-search-dropdown-item .ts-icon { color: #f59e0b; margin-right: 10px; font-size: .8rem; width: 16px; text-align: center; }
+        .trending-search-dropdown-item .ts-text { flex: 1; font-size: .88rem; color: #374151; }
 
         /* Sort bar */
         .sort-bar { background: white; border-radius: 12px; padding: 15px 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
@@ -110,6 +149,17 @@
             min-width: 70px; text-align: center;
         }
         .price-range-display .price-sep { color: #9ca3af; font-size: .85rem; }
+        /* Price quick-select pills */
+        .price-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+        .price-pill {
+            padding: 4px 10px; font-size: .78rem; font-weight: 500;
+            border: 1px solid #d1d5db; border-radius: 20px;
+            background: #fff; color: #374151; cursor: pointer;
+            transition: background .15s, border-color .15s, color .15s;
+            white-space: nowrap; user-select: none;
+        }
+        .price-pill:hover  { background: #f3f0ff; border-color: #667eea; color: #667eea; }
+        .price-pill.active { background: #667eea; border-color: #667eea; color: #fff; }
 
         /* Zero-results help panel */
         .zero-results {
@@ -301,87 +351,161 @@
                         <div class="card-body p-0">
 
                             <!-- Search -->
-                            <div class="filter-section p-3">
-                                <h6 class="filter-title"><i class="fas fa-search me-2"></i>Search</h6>
-                                <div class="search-autocomplete-container">
-                                    <div class="input-group input-group-sm">
-                                        <input type="text" class="form-control" id="search-input"
-                                               placeholder="Search products…" autocomplete="off"
-                                               value="{{ $searchQuery ?? '' }}">
-                                        <button class="btn btn-outline-secondary" type="button" id="search-btn">
-                                            <i class="fas fa-search"></i>
-                                        </button>
-                                    </div>
-                                    <div class="search-suggestions-dropdown" id="search-suggestions" style="display:none;">
-                                        <div class="suggestions-list"></div>
+                            <div class="filter-section" data-key="search">
+                                <h6 class="filter-title">
+                                    <span class="filter-title-inner"><i class="fas fa-search me-2"></i>Search</span>
+                                    <i class="fas fa-chevron-down filter-chevron"></i>
+                                </h6>
+                                <div class="filter-body">
+                                    <div class="search-autocomplete-container">
+                                        <div class="input-group input-group-sm">
+                                            <input type="text" class="form-control" id="search-input"
+                                                   placeholder="Search products…" autocomplete="off"
+                                                   value="{{ $searchQuery ?? '' }}">
+                                            <button class="btn btn-outline-secondary" type="button" id="search-btn">
+                                                <i class="fas fa-search"></i>
+                                            </button>
+                                        </div>
+                                        <div class="search-suggestions-dropdown" id="search-suggestions" style="display:none;">
+                                            <div class="suggestions-list"></div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
                             <!-- Subcategories -->
                             @if($category->children->count() > 0)
-                            <div class="filter-section p-3">
-                                <h6 class="filter-title"><i class="fas fa-sitemap me-2"></i>Sub-categories</h6>
-                                <div style="max-height:160px; overflow-y:auto;">
-                                    @foreach($category->children as $subcategory)
-                                    <div class="form-check mb-2">
-                                        <input class="form-check-input subcategory-filter" type="checkbox"
-                                               value="{{ $subcategory->id }}" id="subcat{{ $subcategory->id }}">
-                                        <label class="form-check-label small" for="subcat{{ $subcategory->id }}">
-                                            {{ $subcategory->name }}
-                                        </label>
+                            <div class="filter-section" data-key="subcategories">
+                                <h6 class="filter-title">
+                                    <span class="filter-title-inner"><i class="fas fa-sitemap me-2"></i>Sub-categories</span>
+                                    <i class="fas fa-chevron-down filter-chevron"></i>
+                                </h6>
+                                <div class="filter-body">
+                                    <div style="max-height:160px; overflow-y:auto;">
+                                        @foreach($category->children as $subcategory)
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input subcategory-filter" type="checkbox"
+                                                   value="{{ $subcategory->id }}" id="subcat{{ $subcategory->id }}">
+                                            <label class="form-check-label small" for="subcat{{ $subcategory->id }}">
+                                                {{ $subcategory->name }}
+                                            </label>
+                                        </div>
+                                        @endforeach
                                     </div>
-                                    @endforeach
                                 </div>
                             </div>
                             @endif
 
                             <!-- Price Range -->
-                            <div class="filter-section p-3">
-                                <h6 class="filter-title"><i class="fas fa-rupee-sign me-2"></i>Price Range</h6>
-
-                                <!-- Selected range display -->
-                                <div class="price-range-display">
-                                    <span class="price-val" id="price-display-min">₹{{ number_format($priceRange['min']) }}</span>
-                                    <span class="price-sep">—</span>
-                                    <span class="price-val" id="price-display-max">₹{{ number_format($priceRange['max']) }}</span>
+                            <div class="filter-section" data-key="price">
+                                <h6 class="filter-title">
+                                    <span class="filter-title-inner"><i class="fas fa-rupee-sign me-2"></i>Price Range</span>
+                                    <i class="fas fa-chevron-down filter-chevron"></i>
+                                </h6>
+                                <div class="filter-body">
+                                    <div class="price-range-display">
+                                        <span class="price-val" id="price-display-min">₹{{ number_format($priceRange['min']) }}</span>
+                                        <span class="price-sep">—</span>
+                                        <span class="price-val" id="price-display-max">₹{{ number_format($priceRange['max']) }}</span>
+                                    </div>
+                                    <div id="price-slider" class="mb-3"></div>
+                                    <input type="hidden" id="price-min" value="">
+                                    <input type="hidden" id="price-max" value="">
+                                    <!-- Quick-select price pills -->
+                                    <div class="price-pills">
+                                        <span class="price-pill" data-min="" data-max="500">Under ₹500</span>
+                                        <span class="price-pill" data-min="500" data-max="2000">₹500–₹2000</span>
+                                        <span class="price-pill" data-min="2000" data-max="">₹2000+</span>
+                                    </div>
                                 </div>
-
-                                <!-- Dual-handle slider -->
-                                <div id="price-slider" class="mb-3"></div>
-
-                                <!-- Hidden inputs read by getFilterData() -->
-                                <input type="hidden" id="price-min" value="">
-                                <input type="hidden" id="price-max" value="">
                             </div>
 
                             <!-- Rating -->
-                            <div class="filter-section p-3">
-                                <h6 class="filter-title"><i class="fas fa-star me-2"></i>Customer Rating</h6>
-                                @foreach([5, 4, 3, 2, 1] as $rating)
-                                <div class="form-check mb-2">
-                                    <input class="form-check-input" type="radio" name="rating"
-                                           value="{{ $rating }}" id="rating-{{ $rating }}">
-                                    <label class="form-check-label small" for="rating-{{ $rating }}">
-                                        @for($i = 1; $i <= 5; $i++)
-                                            <i class="fas fa-star {{ $i <= $rating ? 'text-warning' : 'text-muted' }}" style="font-size:.8rem;"></i>
-                                        @endfor
-                                        <span class="ms-1">{{ $rating }} & Up</span>
-                                    </label>
+                            <div class="filter-section" data-key="rating">
+                                <h6 class="filter-title">
+                                    <span class="filter-title-inner"><i class="fas fa-star me-2"></i>Customer Rating</span>
+                                    <i class="fas fa-chevron-down filter-chevron"></i>
+                                </h6>
+                                <div class="filter-body">
+                                    @foreach([5, 4, 3, 2, 1] as $rating)
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="radio" name="rating"
+                                               value="{{ $rating }}" id="rating-{{ $rating }}">
+                                        <label class="form-check-label small" for="rating-{{ $rating }}">
+                                            @for($i = 1; $i <= 5; $i++)
+                                                <i class="fas fa-star {{ $i <= $rating ? 'text-warning' : 'text-muted' }}" style="font-size:.8rem;"></i>
+                                            @endfor
+                                            <span class="ms-1">{{ $rating }} & Up</span>
+                                        </label>
+                                    </div>
+                                    @endforeach
                                 </div>
-                                @endforeach
                             </div>
 
-                            <!-- New Arrivals -->
-                            <div class="filter-section p-3">
-                                <h6 class="filter-title"><i class="fas fa-bolt me-2"></i>New Arrivals</h6>
-                                <div class="form-check mb-2">
-                                    <input class="form-check-input" type="radio" name="new_arrivals" value="30" id="new-30">
-                                    <label class="form-check-label small" for="new-30">Last 30 days</label>
+                            <!-- Discount % -->
+                            <div class="filter-section" data-key="discount">
+                                <h6 class="filter-title">
+                                    <span class="filter-title-inner"><i class="fas fa-tags me-2"></i>Discount %</span>
+                                    <i class="fas fa-chevron-down filter-chevron"></i>
+                                </h6>
+                                <div class="filter-body">
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="radio" name="discount_min" value="" id="discount-any" checked>
+                                        <label class="form-check-label small" for="discount-any">Any discount</label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="radio" name="discount_min" value="10" id="discount-10">
+                                        <label class="form-check-label small" for="discount-10">10% off+</label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="radio" name="discount_min" value="25" id="discount-25">
+                                        <label class="form-check-label small" for="discount-25">25% off+</label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="radio" name="discount_min" value="50" id="discount-50">
+                                        <label class="form-check-label small" for="discount-50">50% off+</label>
+                                    </div>
                                 </div>
-                                <div class="form-check mb-2">
-                                    <input class="form-check-input" type="radio" name="new_arrivals" value="90" id="new-90">
-                                    <label class="form-check-label small" for="new-90">Last 90 days</label>
+                            </div>
+
+
+                            <!-- New Arrivals -->
+                            <div class="filter-section" data-key="new_arrivals">
+                                <h6 class="filter-title">
+                                    <span class="filter-title-inner"><i class="fas fa-bolt me-2"></i>New Arrivals</span>
+                                    <i class="fas fa-chevron-down filter-chevron"></i>
+                                </h6>
+                                <div class="filter-body">
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="radio" name="new_arrivals" value="30" id="new-30">
+                                        <label class="form-check-label small" for="new-30">Last 30 days</label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="radio" name="new_arrivals" value="90" id="new-90">
+                                        <label class="form-check-label small" for="new-90">Last 90 days</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Availability -->
+                            <div class="filter-section" data-key="availability">
+                                <h6 class="filter-title">
+                                    <span class="filter-title-inner"><i class="fas fa-boxes-stacked me-2"></i>Availability</span>
+                                    <i class="fas fa-chevron-down filter-chevron"></i>
+                                </h6>
+                                <div class="filter-body">
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="radio" name="availability" value="in_stock" id="availability-in-stock">
+                                        <label class="form-check-label small" for="availability-in-stock">In stock only</label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="radio" name="availability" value="out_of_stock" id="availability-out-of-stock">
+                                        <label class="form-check-label small" for="availability-out-of-stock">Show out of stock</label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="radio" name="availability" value="any" id="availability-any" checked>
+                                        <label class="form-check-label small" for="availability-any">Show all</label>
+                                    </div>
                                 </div>
                             </div>
 
@@ -506,46 +630,127 @@
     const PRICE_MAX     = {{ $priceRange['max'] }};
     const RECENT_KEY    = 'cat_recent_{{ $category->slug }}';
     const RECENT_MAX    = 5;
+    const IS_AUTH       = {{ auth()->check() ? 'true' : 'false' }};
+    const HISTORY_SAVE  = '{{ route("category.search-history.save", $category->slug) }}';
+    const HISTORY_GET   = '{{ route("category.search-history.get", $category->slug) }}';
+    const HISTORY_CLEAR = '{{ route("category.search-history.clear", $category->slug) }}';
+    const HISTORY_REMOVE_BASE = '{{ url("category/{$category->slug}/search-history") }}';
+    const TRENDING_URL  = '{{ route("category.trending", $category->slug) }}';
+
+    let cachedTrending = null; // fetched once per page load
 
     let suggestionsTimeout;
     let currentSuggestionIndex = -1;
     let priceSlider;
 
-    /* ===== Recent searches (localStorage) ===== */
+    /* ===== Recent searches — localStorage (guests) + DB (auth users) ===== */
     function getRecentSearches() {
         try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch(e) { return []; }
     }
     function saveRecentSearch(q) {
         if (!q) return;
+        // Always update localStorage (instant feedback)
         let list = getRecentSearches().filter(function(s) { return s.toLowerCase() !== q.toLowerCase(); });
         list.unshift(q);
         list = list.slice(0, RECENT_MAX);
         try { localStorage.setItem(RECENT_KEY, JSON.stringify(list)); } catch(e) {}
+        // Also persist to DB for logged-in users
+        if (IS_AUTH) {
+            $.post(HISTORY_SAVE, { q: q, _token: CSRF });
+        }
     }
     function removeRecentSearch(q) {
         const list = getRecentSearches().filter(function(s) { return s !== q; });
         try { localStorage.setItem(RECENT_KEY, JSON.stringify(list)); } catch(e) {}
+        if (IS_AUTH) {
+            $.ajax({ url: HISTORY_REMOVE_BASE + '/' + encodeURIComponent(q), method: 'DELETE', data: { _token: CSRF } });
+        }
     }
     function clearRecentSearches() {
         try { localStorage.removeItem(RECENT_KEY); } catch(e) {}
+        if (IS_AUTH) {
+            $.ajax({ url: HISTORY_CLEAR, method: 'DELETE', data: { _token: CSRF } });
+        }
     }
-    function showRecentSearches() {
-        const list = getRecentSearches();
-        if (!list.length) { hideSuggestions(); return; }
-        let html = '<div class="recent-searches-header">' +
-            '<span><i class="fas fa-history me-1"></i>Recent</span>' +
-            '<button id="clear-recents-btn">Clear all</button>' +
-            '</div>';
-        list.forEach(function(s) {
-            const safe = escHtml(s);
-            html += '<div class="recent-search-item" data-value="' + safe + '">' +
-                '<i class="fas fa-clock rs-icon"></i>' +
-                '<span class="rs-text">' + safe + '</span>' +
-                '<button class="rs-remove rs-remove-btn" data-term="' + safe + '" title="Remove">&#x2715;</button>' +
-                '</div>';
+
+    /* Fetch from DB for auth users, merge with localStorage, deduplicate */
+    function getEffectiveRecentSearches(callback) {
+        if (!IS_AUTH) {
+            callback(getRecentSearches());
+            return;
+        }
+        $.getJSON(HISTORY_GET, function(dbList) {
+            const local = getRecentSearches();
+            const seen  = new Set();
+            const merged = [];
+            dbList.concat(local).forEach(function(s) {
+                const key = s.toLowerCase();
+                if (!seen.has(key)) { seen.add(key); merged.push(s); }
+            });
+            // Sync merged list back to localStorage
+            try { localStorage.setItem(RECENT_KEY, JSON.stringify(merged.slice(0, RECENT_MAX))); } catch(e) {}
+            callback(merged.slice(0, RECENT_MAX));
+        }).fail(function() {
+            callback(getRecentSearches());
         });
-        $('#search-suggestions .suggestions-list').html(html);
-        $('#search-suggestions').show();
+    }
+
+    /* Fetch trending terms once, cache in memory */
+    function getTrending(callback) {
+        if (cachedTrending !== null) { callback(cachedTrending); return; }
+        $.getJSON(TRENDING_URL, function(terms) {
+            cachedTrending = terms || [];
+            callback(cachedTrending);
+        }).fail(function() {
+            cachedTrending = [];
+            callback([]);
+        });
+    }
+
+    function showRecentSearches() {
+        // Show immediately with localStorage data, then refresh from DB if auth
+        function render(list, trending) {
+            if (!list.length && !trending.length) { hideSuggestions(); return; }
+            let html = '';
+            if (list.length) {
+                html += '<div class="recent-searches-header">' +
+                    '<span><i class="fas fa-history me-1"></i>Recent</span>' +
+                    '<button id="clear-recents-btn">Clear all</button>' +
+                    '</div>';
+                list.forEach(function(s) {
+                    const safe = escHtml(s);
+                    html += '<div class="recent-search-item" data-value="' + safe + '">' +
+                        '<i class="fas fa-clock rs-icon"></i>' +
+                        '<span class="rs-text">' + safe + '</span>' +
+                        '<button class="rs-remove rs-remove-btn" data-term="' + safe + '" title="Remove">&#x2715;</button>' +
+                        '</div>';
+                });
+            }
+            if (trending.length) {
+                html += '<div class="trending-searches-header"><i class="fas fa-fire"></i>Trending in {{ $category->name }}</div>';
+                trending.forEach(function(term) {
+                    html += '<div class="trending-search-dropdown-item" data-value="' + escHtml(term) + '">' +
+                        '<i class="fas fa-arrow-trend-up ts-icon"></i>' +
+                        '<span class="ts-text">' + escHtml(term) + '</span>' +
+                        '</div>';
+                });
+            }
+            $('#search-suggestions .suggestions-list').html(html);
+            positionSearchDropdown();
+            $('#search-suggestions').show();
+        }
+
+        // Show localStorage data instantly, then update with DB data
+        getTrending(function(trending) {
+            if (IS_AUTH) {
+                render(getRecentSearches(), trending); // instant local render
+                getEffectiveRecentSearches(function(merged) {
+                    render(merged, trending); // update with merged DB data
+                });
+            } else {
+                render(getRecentSearches(), trending);
+            }
+        });
     }
 
     /* ===== Toast ===== */
@@ -581,16 +786,23 @@
         const arrivals = $('input[name="new_arrivals"]:checked').val();
         if (arrivals) data.new_arrivals = arrivals;
 
+        const availability = $('input[name="availability"]:checked').val();
+        if (availability && availability !== 'any') data.availability = availability;
+
+        const discountMin = $('input[name="discount_min"]:checked').val();
+        if (discountMin) data.discount_min = discountMin;
+
         return data;
     }
 
     /* ===== Zero results help builder ===== */
-    function buildZeroResultsHTML(filters) {
+    function buildZeroResultsHTML(filters, trendingSearches) {
         const q        = filters.q         || '';
         const pMin     = filters.price_min || '';
         const pMax     = filters.price_max || '';
         const rating   = filters.rating    || '';
         const subcats  = filters['subcategory[]'] || [];
+        const trends   = Array.isArray(trendingSearches) ? trendingSearches : [];
 
         /* Heading: what did they search for? */
         let headingWhat = '';
@@ -611,9 +823,22 @@
         });
         tipsHTML += '</ul>';
 
+        let trendingHTML = '';
+        if (trends.length) {
+            trendingHTML = '<div class="mb-3 text-start">' +
+                '<div class="small text-uppercase text-muted fw-semibold mb-2">Trending searches</div>' +
+                '<div class="d-flex flex-wrap gap-2">';
+            trends.forEach(function (term) {
+                trendingHTML += '<button type="button" class="btn btn-outline-primary btn-sm trending-search-chip" data-term="' + escHtml(term) + '">' + escHtml(term) + '</button>';
+            });
+            trendingHTML += '</div></div>';
+        }
+
         /* Action buttons */
         let btns = '<div class="d-flex justify-content-center gap-3 flex-wrap">';
-        const hasFilters = q || pMin || pMax || rating || (subcats && subcats.length);
+        const discountMin = $('input[name="discount_min"]:checked').val();
+        const hasDiscountMin = discountMin && discountMin !== '';
+        const hasFilters = q || pMin || pMax || rating || hasDiscountMin || (subcats && subcats.length);
         if (hasFilters) {
             btns += '<button class="zr-action-btn primary" onclick="clearAllFilters()">' +
                     '<i class="fas fa-times"></i> Clear all filters</button>';
@@ -630,6 +855,7 @@
             '<div class="zr-icon"><i class="fas fa-search"></i></div>' +
             '<h5>No results' + (headingWhat ? ' for ' + headingWhat : '') + '</h5>' +
             '<p class="zr-sub">We couldn\'t find any products matching your filters in <strong>{{ $category->name }}</strong>.</p>' +
+            trendingHTML +
             tipsHTML +
             btns +
             '</div>';
@@ -666,7 +892,7 @@
                 if (res.success) {
                     if (page === 1) {
                         if (res.html.trim() === '') {
-                            $('#products-container').html(buildZeroResultsHTML(getFilterData()));
+                            $('#products-container').html(buildZeroResultsHTML(getFilterData(), res.trending_searches || []));
                         } else {
                             $('#products-container').html('<div class="row g-3" id="products-grid">' + res.html + '</div>');
                         }
@@ -731,6 +957,7 @@
 
     function fetchSuggestions(query) {
         $('#search-suggestions .suggestions-list').html('<div class="suggestions-loading"><i class="fas fa-spinner fa-spin me-1"></i>Loading…</div>');
+        positionSearchDropdown();
         $('#search-suggestions').show();
 
         $.ajax({
@@ -740,20 +967,45 @@
                     $('#search-suggestions .suggestions-list').html('<div class="no-suggestions">No suggestions found</div>');
                     return;
                 }
+
+                var products   = suggestions.filter(function(s) { return s.type === 'product'; });
+                var categories = suggestions.filter(function(s) { return s.type === 'category'; });
+                var dym        = suggestions.filter(function(s) { return s.type === 'did_you_mean'; });
+
+                function countBadge(s) {
+                    if (!s.count) return '';
+                    return '<span class="suggestion-count">(' + s.count + ' result' + (s.count === 1 ? '' : 's') + ')</span>';
+                }
+
+                function renderItem(s) {
+                    return '<div class="suggestion-item" data-value="' + escHtml(s.value) + '" data-type="' + escHtml(s.type) + '">' +
+                        '<i class="' + escHtml(s.icon) + ' suggestion-icon"></i>' +
+                        '<span class="suggestion-text">' + highlightMatch(s.text, query) + '</span>' +
+                        countBadge(s) +
+                        '</div>';
+                }
+
                 let html = '';
-                suggestions.forEach(function (s) {
-                    if (s.type === 'did_you_mean') {
+
+                if (dym.length) {
+                    dym.forEach(function(s) {
                         html += '<div class="suggestion-item suggestion-dym" data-value="' + escHtml(s.value) + '" data-type="product">' +
                             '<i class="fas fa-spell-check suggestion-icon"></i>' +
                             '<span class="suggestion-text">Did you mean: <strong>' + escHtml(s.text) + '</strong>?</span>' +
                             '</div>';
-                    } else {
-                        html += '<div class="suggestion-item" data-value="' + escHtml(s.value) + '" data-type="' + escHtml(s.type) + '">' +
-                            '<i class="' + escHtml(s.icon) + ' suggestion-icon"></i>' +
-                            '<span class="suggestion-text">' + highlightMatch(s.text, query) + '</span>' +
-                            '<span class="suggestion-type">' + escHtml(s.type) + '</span></div>';
-                    }
-                });
+                    });
+                }
+
+                if (products.length) {
+                    html += '<div class="suggestion-group-header">Products</div>';
+                    products.forEach(function(s) { html += renderItem(s); });
+                }
+
+                if (categories.length) {
+                    html += '<div class="suggestion-group-header">Categories</div>';
+                    categories.forEach(function(s) { html += renderItem(s); });
+                }
+
                 $('#search-suggestions .suggestions-list').html(html);
                 currentSuggestionIndex = -1;
             },
@@ -761,6 +1013,33 @@
                 $('#search-suggestions .suggestions-list').html('<div class="no-suggestions">Error loading suggestions</div>');
             }
         });
+    }
+
+    function positionSearchDropdown() {
+        var $anchor = $('#search-input').closest('.search-autocomplete-container');
+        if (!$anchor.length) return;
+        // jQuery .offset() is document-relative and works correctly through
+        // sticky, overflow, and transform ancestors — convert to viewport coords
+        var off        = $anchor.offset();
+        var scrollTop  = $(window).scrollTop();
+        var scrollLeft = $(window).scrollLeft();
+        var vpTop      = off.top  - scrollTop;
+        var vpLeft     = off.left - scrollLeft;
+        var anchorW    = $anchor.outerWidth();
+        var anchorH    = $anchor.outerHeight();
+        var bottom     = vpTop + anchorH;
+        var dd         = document.getElementById('search-suggestions');
+        var ddH        = Math.min(300, dd.scrollHeight || 300);
+        var spaceBelow = window.innerHeight - bottom - 8;
+        var spaceAbove = vpTop - 8;
+        if (spaceBelow >= Math.min(ddH, 120) || spaceBelow >= spaceAbove) {
+            $(dd).css({ top: bottom + 'px', left: vpLeft + 'px', width: anchorW + 'px',
+                        borderRadius: '0 0 8px 8px', borderTop: 'none' });
+        } else {
+            var top = Math.max(8, vpTop - Math.min(ddH, spaceAbove + 8));
+            $(dd).css({ top: top + 'px', left: vpLeft + 'px', width: anchorW + 'px',
+                        borderRadius: '8px 8px 0 0', borderTop: '1px solid #dee2e6' });
+        }
     }
 
     function hideSuggestions() { $('#search-suggestions').hide(); currentSuggestionIndex = -1; }
@@ -788,9 +1067,9 @@
 
         const pMin = $('#price-min').val();
         const pMax = $('#price-max').val();
-        if (pMin && pMax)  chips.push({ key: 'price', label: '₹' + parseInt(pMin).toLocaleString('en-IN') + ' – ₹' + parseInt(pMax).toLocaleString('en-IN'), remove: function() { priceSlider.set([PRICE_MIN, PRICE_MAX]); } });
-        else if (pMin)     chips.push({ key: 'price_min', label: 'Min ₹' + parseInt(pMin).toLocaleString('en-IN'), remove: function() { priceSlider.set([PRICE_MIN, parseInt($('#price-max').val()) || PRICE_MAX]); } });
-        else if (pMax)     chips.push({ key: 'price_max', label: 'Max ₹' + parseInt(pMax).toLocaleString('en-IN'), remove: function() { priceSlider.set([parseInt($('#price-min').val()) || PRICE_MIN, PRICE_MAX]); } });
+        if (pMin && pMax)  chips.push({ key: 'price', label: '₹' + parseInt(pMin).toLocaleString('en-IN') + ' – ₹' + parseInt(pMax).toLocaleString('en-IN'), remove: function() { priceSlider.set([PRICE_MIN, PRICE_MAX]); $('.price-pill').removeClass('active'); } });
+        else if (pMin)     chips.push({ key: 'price_min', label: 'Min ₹' + parseInt(pMin).toLocaleString('en-IN'), remove: function() { priceSlider.set([PRICE_MIN, parseInt($('#price-max').val()) || PRICE_MAX]); $('.price-pill').removeClass('active'); } });
+        else if (pMax)     chips.push({ key: 'price_max', label: 'Max ₹' + parseInt(pMax).toLocaleString('en-IN'), remove: function() { priceSlider.set([parseInt($('#price-min').val()) || PRICE_MIN, PRICE_MAX]); $('.price-pill').removeClass('active'); } });
 
         const rating = $('input[name="rating"]:checked').val();
         if (rating) {
@@ -809,6 +1088,17 @@
             chips.push({ key: 'new_arrivals', label: '⚡ Last ' + arrivals + ' days', remove: function() { $('input[name="new_arrivals"]').prop('checked', false); } });
         }
 
+        const discountMin = $('input[name="discount_min"]:checked').val();
+        if (discountMin && discountMin !== '') {
+            chips.push({ key: 'discount_min', label: discountMin + '% off+', remove: function() { $('input[name="discount_min"][value=""]').prop('checked', true); } });
+        }
+
+        const availability = $('input[name="availability"]:checked').val();
+        if (availability && availability !== 'any') {
+            const availabilityLabel = availability === 'in_stock' ? 'In stock only' : 'Show out of stock';
+            chips.push({ key: 'availability', label: availabilityLabel, remove: function() { $('input[name="availability"][value="any"]').prop('checked', true); } });
+        }
+
         if (chips.length === 0) { $('#active-filters-bar').hide(); return; }
 
         let html = '';
@@ -825,6 +1115,7 @@
         /* Store remove callbacks */
         window._chipRemovers = {};
         chips.forEach(function (c) { window._chipRemovers[c.key] = c.remove; });
+        updateFilterSectionActiveState();
     }
 
     /* ===== Restore filters from URL ===== */
@@ -840,13 +1131,73 @@
             priceSlider.set([sMin, sMax]);
         }
         if (p.has('new_arrivals')) $('input[name="new_arrivals"][value="' + p.get('new_arrivals') + '"]').prop('checked', true);
+        if (p.has('discount_min')) $('input[name="discount_min"][value="' + p.get('discount_min') + '"]').prop('checked', true);
+        if (p.has('availability')) {
+            var availabilityValue = p.get('availability');
+            $('input[name="availability"][value="' + availabilityValue + '"]').prop('checked', true);
+        }
         p.getAll('subcategory[]').concat(p.getAll('subcategory')).forEach(function (id) {
             $('.subcategory-filter[value="' + id + '"]').prop('checked', true);
         });
     }
 
+    /* ===== Collapsible filter sections ===== */
+    const COLLAPSE_KEY = 'cat_filters_{{ $category->slug }}';
+
+    function initCollapsibleFilters() {
+        const sections = Array.from(document.querySelectorAll('.filter-section[data-key]'));
+        const total    = sections.length;
+        let saved = {};
+        try { saved = JSON.parse(localStorage.getItem(COLLAPSE_KEY) || '{}'); } catch(e) {}
+
+        sections.forEach(function (section, index) {
+            const key = section.dataset.key;
+            // Never auto-collapse search or price (price slider needs visible width at init)
+            const neverCollapse = (key === 'search' || key === 'price');
+            // Default: collapse from index 3 onwards when total > 5
+            const defaultCollapsed = !neverCollapse && total > 5 && index >= 3;
+            const isCollapsed = (key in saved) ? saved[key] : defaultCollapsed;
+            if (isCollapsed) section.classList.add('fs-collapsed');
+
+            section.querySelector('.filter-title').addEventListener('click', function () {
+                const wasCollapsed = section.classList.contains('fs-collapsed');
+                section.classList.toggle('fs-collapsed');
+                // Persist state
+                let state = {};
+                try { state = JSON.parse(localStorage.getItem(COLLAPSE_KEY) || '{}'); } catch(e) {}
+                state[key] = !wasCollapsed; // new collapsed state
+                try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify(state)); } catch(e) {}
+                // Reflow noUiSlider if price section was just expanded
+                if (key === 'price' && wasCollapsed && priceSlider) {
+                    setTimeout(function () { priceSlider.reflow(); }, 320);
+                }
+            });
+        });
+    }
+
+    function updateFilterSectionActiveState() {
+        // Highlight section title when it has an active filter
+        var checks = {
+            search:       function() { return !!$('#search-input').val().trim(); },
+            subcategories:function() { return $('.subcategory-filter:checked').length > 0; },
+            price:        function() { return !!($('#price-min').val() || $('#price-max').val()); },
+            rating:       function() { return !!$('input[name="rating"]:checked').val(); },
+            discount:     function() { var v = $('input[name="discount_min"]:checked').val(); return v && v !== ''; },
+            new_arrivals: function() { return !!$('input[name="new_arrivals"]:checked').val(); },
+            availability: function() { var v = $('input[name="availability"]:checked').val(); return v && v !== 'any'; }
+        };
+        Object.keys(checks).forEach(function(key) {
+            var section = document.querySelector('.filter-section[data-key="' + key + '"]');
+            if (!section) return;
+            section.classList.toggle('has-active-filter', checks[key]());
+        });
+    }
+
     /* ===== DOM ready ===== */
     $(document).ready(function () {
+
+        /* Move suggestions dropdown to <body> so it escapes all overflow/sticky containers */
+        $('body').append($('#search-suggestions').detach());
 
         /* --- Initialize dual-handle noUiSlider --- */
         priceSlider = noUiSlider.create(document.getElementById('price-slider'), {
@@ -874,12 +1225,40 @@
             loadProducts(1);
         });
 
+        /* Price quick-select pills */
+        $(document).on('click', '.price-pill', function () {
+            var $pill = $(this);
+            var lo = $pill.data('min') !== '' ? parseInt($pill.data('min')) : PRICE_MIN;
+            var hi = $pill.data('max') !== '' ? parseInt($pill.data('max')) : PRICE_MAX;
+            // Clamp to actual product price range
+            lo = Math.max(PRICE_MIN, lo);
+            hi = Math.min(PRICE_MAX, hi);
+            if ($pill.hasClass('active')) {
+                // Deselect: reset slider to full range
+                priceSlider.set([PRICE_MIN, PRICE_MAX]);
+                $('.price-pill').removeClass('active');
+            } else {
+                priceSlider.set([lo, hi]);
+                $('.price-pill').removeClass('active');
+                $pill.addClass('active');
+            }
+            renderActiveFilters();
+            loadProducts(1);
+        });
+
+        /* Deselect pill when slider is moved manually */
+        priceSlider.on('start', function () {
+            $('.price-pill').removeClass('active');
+        });
+
         initFromURL();
         renderActiveFilters();
         loadProducts(1);
+        initCollapsibleFilters();
+        updateFilterSectionActiveState();
 
         /* Filter changes – instant */
-        $(document).on('change', '.subcategory-filter, input[name="rating"], input[name="new_arrivals"]', function () { renderActiveFilters(); loadProducts(1); });
+        $(document).on('change', '.subcategory-filter, input[name="rating"], input[name="new_arrivals"], input[name="availability"], input[name="discount_min"]', function () { renderActiveFilters(); loadProducts(1); });
         $('#sort-select, #per-page').on('change', function () { loadProducts(1); });
 
         /* Search button / enter */
@@ -939,6 +1318,27 @@
             if ($(e.target).hasClass('rs-remove-btn') || $(e.target).closest('.rs-remove-btn').length) return;
             const val = $(this).data('value');
             $('#search-input').val(val);
+            saveRecentSearch(val);
+            hideSuggestions();
+            renderActiveFilters();
+            loadProducts(1);
+        });
+
+        /* Click trending item in focus dropdown */
+        $(document).on('click', '.trending-search-dropdown-item', function () {
+            const val = $(this).data('value');
+            $('#search-input').val(val);
+            saveRecentSearch(val);
+            hideSuggestions();
+            renderActiveFilters();
+            loadProducts(1);
+        });
+
+        /* Click trending search chip from empty state */
+        $(document).on('click', '.trending-search-chip', function () {
+            const term = $(this).data('term');
+            $('#search-input').val(term);
+            saveRecentSearch(term);
             hideSuggestions();
             renderActiveFilters();
             loadProducts(1);
@@ -960,7 +1360,12 @@
 
         /* Click outside */
         $(document).on('click', function (e) {
-            if (!$(e.target).closest('.search-autocomplete-container').length) hideSuggestions();
+            if (!$(e.target).closest('.search-autocomplete-container, #search-suggestions').length) hideSuggestions();
+        });
+
+        /* Reposition fixed dropdown on scroll / resize */
+        $(window).on('scroll.suggestpos resize.suggestpos', function () {
+            if ($('#search-suggestions').is(':visible')) positionSearchDropdown();
         });
 
         /* Clear filters — defined on window so zero-results panel can call it */
@@ -969,10 +1374,13 @@
             $('#price-min, #price-max').val('');
             $('input[name="rating"]').prop('checked', false);
             $('input[name="new_arrivals"]').prop('checked', false);
+            $('input[name="discount_min"][value=""]').prop('checked', true);
+            $('input[name="availability"][value="any"]').prop('checked', true);
             $('.subcategory-filter').prop('checked', false);
             $('#sort-select').val('newest');
             $('#per-page').val('12');
             priceSlider.set([PRICE_MIN, PRICE_MAX]);
+            $('.price-pill').removeClass('active');
             renderActiveFilters();
             loadProducts(1);
         };
@@ -989,6 +1397,9 @@
         });
 
         /* Infinite scroll – IntersectionObserver + scroll/touchend fallback */
+        // Pre-fetch trending terms in background so dropdown shows instantly on focus
+        getTrending(function() {});
+
         function triggerInfiniteLoad() {
             if (!nextPage || isLoading) return;
             const sentinel = document.getElementById('scroll-sentinel');

@@ -20,6 +20,15 @@ Route::post('/webhooks/razorpay', [App\Http\Controllers\WebhookController::class
 
 Route::get('/category/{slug}', [FrontendController::class, 'categoryProducts'])->name('category.products');
 Route::get('/category/{slug}/search-suggestions', [FrontendController::class, 'categorySearchSuggestions'])->name('category.search-suggestions');
+Route::get('/category/{slug}/trending', [FrontendController::class, 'categoryTrending'])->name('category.trending');
+
+// Search history (auth only)
+Route::middleware('auth')->group(function () {
+    Route::post('/category/{slug}/search-history', [FrontendController::class, 'saveSearchHistory'])->name('category.search-history.save');
+    Route::get('/category/{slug}/search-history', [FrontendController::class, 'getSearchHistory'])->name('category.search-history.get');
+    Route::delete('/category/{slug}/search-history', [FrontendController::class, 'clearSearchHistory'])->name('category.search-history.clear');
+    Route::delete('/category/{slug}/search-history/{query}', [FrontendController::class, 'removeSearchHistoryItem'])->name('category.search-history.remove');
+});
 Route::get('/search-suggestions', [FrontendController::class, 'searchSuggestions'])->name('search.suggestions');
 Route::get('/dashboard', function () {
     return view('dashboard');

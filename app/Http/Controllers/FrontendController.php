@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\Slider;
 use App\Models\Category;
 use App\Services\CartService;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use App\Models\Cart;
 
@@ -60,8 +61,10 @@ class FrontendController extends Controller
             ->orderBy('sort_order')
             ->get();
 
-        $wishlistProductIds = auth()->check()
-            ? auth()->user()->wishlist()->pluck('product_id')
+        /** @var \App\Models\User|null $authUser */
+        $authUser = Auth::user();
+        $wishlistProductIds = $authUser
+            ? $authUser->wishlist()->pluck('product_id')
             : collect();
 
 
@@ -147,11 +150,59 @@ class FrontendController extends Controller
             $productsQuery->where('average_rating', '>=', $request->rating);
         }
 
+        // Discount % filter (sale_products): discount_pct >= discount_min
+        // discount_pct = ((original_price - sale_price) / original_price) * 100
+        // Only apply when discount_min is one of [10,25,50]
+        $discountMin = $request->input('discount_min');
+        $allowedDiscountMins = [10, 25, 50];
+        if (in_array((int) $discountMin, $allowedDiscountMins, true)) {
+            $min = (int) $discountMin;
+            $productsQuery->whereHas('saleProducts', function ($q) use ($min) {
+                // Scope to active sale events only
+                $q->whereHas('saleEvent', function ($sq) {
+                    $sq->where('status', 'active')
+                       ->where('starts_at', '<=', now())
+                       ->where('ends_at', '>=', now());
+                })
+                ->whereColumn('sale_products.sale_price', '<', 'sale_products.original_price')
+                ->whereRaw(
+                    'CASE ' .
+                    'WHEN sale_products.original_price <= 0 THEN 0 ' .
+                    'ELSE ((sale_products.original_price - sale_products.sale_price) / sale_products.original_price) * 100 ' .
+                    'END >= ?',
+                    [$min]
+                );
+            });
+        }
+
+
+
+
+
         // New Arrivals filter
         if ($request->filled('new_arrivals')) {
             $days = (int) $request->new_arrivals;
             if (in_array($days, [30, 90])) {
                 $productsQuery->where('created_at', '>=', now()->subDays($days));
+            }
+        }
+
+        // Availability filter using product_stocks table
+        if ($request->filled('availability')) {
+            switch ($request->availability) {
+                case 'in_stock':
+                    $productsQuery->whereHas('productStocks', function ($query) {
+                        $query->where('status', 'active')
+                            ->where('qty', '>', 0);
+                    });
+                    break;
+
+                case 'out_of_stock':
+                    $productsQuery->whereDoesntHave('productStocks', function ($query) {
+                        $query->where('status', 'active')
+                            ->where('qty', '>', 0);
+                    });
+                    break;
             }
         }
 
@@ -182,8 +233,10 @@ class FrontendController extends Controller
         $perPage = (int) $request->get('per_page', 12);
         $products = $productsQuery->paginate($perPage);
 
-        $wishlistProductIds = auth()->check()
-            ? auth()->user()->wishlist()->pluck('product_id')
+        /** @var \App\Models\User|null $authUser */
+        $authUser = Auth::user();
+        $wishlistProductIds = $authUser
+            ? $authUser->wishlist()->pluck('product_id')
             : collect();
 
         // AJAX response (filters, load more, search)
@@ -197,10 +250,15 @@ class FrontendController extends Controller
                 ? 'No products found'
                 : "Showing {$from}-{$to} of {$total} results";
 
+            $trendingSearches = $total === 0
+                ? $this->getCategoryTrendingSearches($category, $categoryIds, $request->input('q'))
+                : [];
+
             return response()->json([
-                'success'         => true,
-                'html'            => $html,
-                'pagination'      => [
+                'success'           => true,
+                'html'              => $html,
+                'trending_searches'  => $trendingSearches,
+                'pagination'        => [
                     'current_page'   => $products->currentPage(),
                     'last_page'      => $products->lastPage(),
                     'total'          => $total,
@@ -210,8 +268,8 @@ class FrontendController extends Controller
                     'has_more_pages' => $products->hasMorePages(),
                     'next_page'      => $products->currentPage() + 1,
                 ],
-                'results_text'    => $resultsText,
-                'filters_applied' => $this->getCategoryAppliedFiltersCount($request),
+                'results_text'      => $resultsText,
+                'filters_applied'   => $this->getCategoryAppliedFiltersCount($request),
             ]);
         }
 
@@ -247,8 +305,64 @@ class FrontendController extends Controller
         if ($request->filled('price_max'))    $count++;
         if ($request->filled('rating'))       $count++;
         if ($request->filled('new_arrivals')) $count++;
+        if ($request->filled('availability')) $count++;
+        if (in_array((int) $request->input('discount_min'), [10, 25, 50], true)) $count++;
         if ($request->filled('subcategory'))  $count++;
         return $count;
+    }
+
+    /**
+     * Build trending search terms for empty category results
+     */
+    private function getCategoryTrendingSearches($category, array $categoryIds, ?string $query = null, int $limit = 6): array
+    {
+        $searchTerms = collect();
+
+        $topProducts = Product::where('status', true)
+            ->whereIn('category_id', $categoryIds)
+            ->when($query, function ($q) use ($query) {
+                $q->where('name', 'LIKE', "%{$query}%");
+            })
+            ->orderByDesc('review_count')
+            ->orderByDesc('created_at')
+            ->limit(20)
+            ->pluck('name');
+
+        foreach ($topProducts as $productName) {
+            $searchTerms->push($productName);
+        }
+
+        $relatedCategories = Category::whereIn('id', $categoryIds)
+            ->orderBy('sort_order')
+            ->pluck('name');
+
+        foreach ($relatedCategories as $categoryName) {
+            $searchTerms->push($categoryName);
+        }
+
+        $fallbackTerms = [
+            'Best Sellers',
+            'New Arrivals',
+            'Top Rated',
+            'Trending Now',
+            $category->name,
+        ];
+
+        foreach ($fallbackTerms as $term) {
+            $searchTerms->push($term);
+        }
+
+        return $searchTerms
+            ->filter()
+            ->map(function ($term) {
+                return trim($term);
+            })
+            ->unique(function ($term) {
+                return mb_strtolower($term);
+            })
+            ->take($limit)
+            ->values()
+            ->all();
     }
 
     /**
@@ -277,27 +391,42 @@ class FrontendController extends Controller
             ->limit(8)
             ->get();
 
+        // Result count per product-name suggestion (exact name match count)
+        $productCounts = Product::where('status', true)
+            ->whereIn('category_id', $categoryIds)
+            ->where('name', 'LIKE', "%{$query}%")
+            ->selectRaw('name, COUNT(*) as cnt')
+            ->groupBy('name')
+            ->limit(8)
+            ->pluck('cnt', 'name');
+
         foreach ($products as $product) {
             $suggestions[] = [
                 'type'  => 'product',
                 'text'  => $product->name,
                 'value' => $product->name,
                 'icon'  => 'fas fa-box',
+                'count' => (int) ($productCounts[$product->name] ?? 0),
             ];
         }
 
         $subcategories = Category::whereIn('id', $categoryIds)
             ->where('name', 'LIKE', "%{$query}%")
-            ->select('name')
+            ->select('id', 'name')
             ->limit(3)
             ->get();
 
         foreach ($subcategories as $subcat) {
+            $subIds   = $this->getAllCategoryIds($subcat);
+            $subCount = Product::where('status', true)
+                ->whereIn('category_id', $subIds)
+                ->count();
             $suggestions[] = [
                 'type'  => 'category',
                 'text'  => 'in ' . $subcat->name,
                 'value' => $subcat->name,
                 'icon'  => 'fas fa-tags',
+                'count' => $subCount,
             ];
         }
 
@@ -337,6 +466,100 @@ class FrontendController extends Controller
         }
 
         return response()->json($suggestions);
+    }
+
+    /**
+     * Trending search terms for a category (lightweight, cacheable)
+     */
+    public function categoryTrending(Request $request, $slug)
+    {
+        $category = Category::where('slug', $slug)->first();
+        if (!$category) {
+            return response()->json([]);
+        }
+        $categoryIds = $this->getAllCategoryIds($category);
+        $terms = $this->getCategoryTrendingSearches($category, $categoryIds, null, 6);
+        return response()->json($terms);
+    }
+
+    /**
+     * Save a search query to the authenticated user's history
+     */
+    public function saveSearchHistory(Request $request, $slug)
+    {
+        $query = trim($request->input('q', ''));
+        if (!$query || strlen($query) > 255) {
+            return response()->json(['ok' => false]);
+        }
+
+        \DB::table('search_histories')->updateOrInsert(
+            [
+                'user_id'       => auth()->id(),
+                'category_slug' => $slug,
+                'query_hash'    => md5(mb_strtolower($query)),
+            ],
+            [
+                'query'       => $query,
+                'searched_at' => now(),
+            ]
+        );
+
+        // Keep only the latest 10 entries per user+category
+        $ids = \DB::table('search_histories')
+            ->where('user_id', auth()->id())
+            ->where('category_slug', $slug)
+            ->orderByDesc('searched_at')
+            ->skip(10)
+            ->take(PHP_INT_MAX)
+            ->pluck('id');
+
+        if ($ids->isNotEmpty()) {
+            \DB::table('search_histories')->whereIn('id', $ids)->delete();
+        }
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Get the authenticated user's recent searches for a category
+     */
+    public function getSearchHistory(Request $request, $slug)
+    {
+        $rows = \DB::table('search_histories')
+            ->where('user_id', auth()->id())
+            ->where('category_slug', $slug)
+            ->orderByDesc('searched_at')
+            ->limit(5)
+            ->pluck('query');
+
+        return response()->json($rows);
+    }
+
+    /**
+     * Remove a single search history item
+     */
+    public function removeSearchHistoryItem(Request $request, $slug, $query)
+    {
+        \DB::table('search_histories')
+            ->where('user_id', auth()->id())
+            ->where('category_slug', $slug)
+            ->where('query_hash', md5(mb_strtolower(urldecode($query))))
+            ->delete();
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Clear all search history for user+category
+     */
+    public function clearSearchHistory(Request $request, $slug)
+    {
+        \DB::table('search_histories')
+            ->where('user_id', auth()->id())
+            ->where('category_slug', $slug)
+            ->delete();
+
+        return response()->json(['ok' => true]);
     }
 
     /**
