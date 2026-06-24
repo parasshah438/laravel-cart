@@ -18,6 +18,7 @@ use App\Mail\OrderConfirmation;
 use Illuminate\Support\Facades\Mail;
 use Carbon\Carbon;
 use Exception;
+use App\Services\StockService;
 
 
 class CheckoutController extends Controller
@@ -26,8 +27,9 @@ class CheckoutController extends Controller
     protected $razorpayService;
     protected $stripeService;
     protected $paymentService;
+    protected $stockService;
 
-    public function __construct(CartService $cart, RazorpayService $razorpayService, StripeService $stripeService, PaymentService $paymentService)
+    public function __construct(CartService $cart, RazorpayService $razorpayService, StripeService $stripeService, PaymentService $paymentService, StockService $stockService)
     {
         $this->cart = $cart;
         $this->razorpayService = $razorpayService;
@@ -260,6 +262,9 @@ class CheckoutController extends Controller
             ]);
         }
 
+        // ✅ DEDUCT STOCK FOR COD ORDER
+        $this->stockService->deductOrderStock($order);
+
         // ✅ CREATE PAYMENT RECORD FOR COD
         $this->paymentService->createCODPayment($order);
 
@@ -419,6 +424,9 @@ class CheckoutController extends Controller
 
         $order->update(['status' => 'cancelled']);
 
+        // ♻️ RESTORE STOCK ON CANCELLATION
+        $this->stockService->restoreOrderStock($order);
+
         return back()->with('success', 'Order has been cancelled successfully.');
     }
 
@@ -457,6 +465,9 @@ class CheckoutController extends Controller
             'cancellation_reason' => 'Cancelled by customer',
             'cancelled_at'        => now(),
         ]);
+
+        // ♻️ RESTORE STOCK FOR THIS ITEM
+        $this->stockService->restoreOrderItemStock($item);
 
         // If ALL items are now cancelled → mark the whole order cancelled too
         $order->load('items');
@@ -542,7 +553,18 @@ class CheckoutController extends Controller
         $order = Order::with('items')->findOrFail($orderId);
         $newStatus = $request->status;
 
+        $oldStatus = $order->status;
+
         $order->update(['status' => $newStatus]);
+
+        // 📦 HANDLE STOCK DEDUCTION / RESTORATION ON STATUS CHANGE
+        if ($newStatus === 'confirmed' && $oldStatus !== 'confirmed') {
+            // Deduct stock when order is confirmed (for pending orders that weren't deducted yet)
+            $this->stockService->deductOrderStock($order);
+        } elseif ($newStatus === 'cancelled' && $oldStatus !== 'cancelled') {
+            // Restore stock when order is cancelled
+            $this->stockService->restoreOrderStock($order);
+        }
 
         // Sync item_status for non-cancelled items to match the new order status
         $itemStatusMap = [
@@ -1321,6 +1343,9 @@ class CheckoutController extends Controller
                 ])
             ]);
 
+            // 📦 DEDUCT STOCK ON PAYMENT SUCCESS (items already exist in order)
+            $this->stockService->deductOrderStock($order);
+
             // Send order confirmation email
             try {
                 Mail::to(auth()->user()->email)->queue(new OrderConfirmation($order));
@@ -1841,4 +1866,4 @@ class CheckoutController extends Controller
 
         Log::info('Order marked as failed via Stripe webhook', ['order_id' => $order->id, 'payment_intent_id' => $paymentIntentId]);
     }
-}    
+}

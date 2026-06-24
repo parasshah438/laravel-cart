@@ -11,6 +11,7 @@ use App\Jobs\TestShipmentJob;
 use App\Jobs\SimpleProcessShipmentJob;
 use App\Jobs\MinimalShipmentJob;
 use App\Jobs\ProcessCODTrackingEventJob;
+use App\Services\StockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -18,6 +19,13 @@ use Carbon\Carbon;
 
 class AdminOrderController extends Controller
 {
+    protected $stockService;
+
+    public function __construct(StockService $stockService)
+    {
+        $this->stockService = $stockService;
+    }
+
     /**
      * Display the admin order dashboard with overview metrics
      */
@@ -465,6 +473,9 @@ class AdminOrderController extends Controller
                 // RefundPaymentJob::dispatch($order);
             }
             
+            // ♻️ RESTORE STOCK ON ADMIN CANCELLATION
+            $this->stockService->restoreOrderStock($order);
+
             DB::commit();
             
             return response()->json([

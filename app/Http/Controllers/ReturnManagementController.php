@@ -4,10 +4,18 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Order;
+use App\Services\StockService;
 use Illuminate\Support\Facades\Log;
 
 class ReturnManagementController extends Controller
 {
+    protected $stockService;
+
+    public function __construct(StockService $stockService)
+    {
+        $this->stockService = $stockService;
+    }
+
     /**
      * Display return requests
      */
@@ -69,6 +77,11 @@ class ReturnManagementController extends Controller
         ];
 
         $order->update(['notes' => $currentNotes]);
+
+        // 📦 RESTORE STOCK WHEN RETURN IS COMPLETED
+        if ($request->status === 'completed') {
+            $this->stockService->restoreOrderStock($order);
+        }
 
         Log::info('Return status updated by admin', [
             'order_id' => $order->id,
